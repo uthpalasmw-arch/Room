@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Our Room</title>
+<meta name="description" content="A cozy little room for two.">
+<meta name="theme-color" content="#7b5cff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Our Room">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Permanent+Marker&family=Patrick+Hand&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" hidden>
+  <header id="topbar">
+    <button id="pill-me" class="pill" data-panel="profile" aria-label="My profile"></button>
+    <div id="pill-other" class="pill other"></div>
+    <span id="demo-badge" hidden title="Demo mode: only works on this device">DEMO</span>
+  </header>
+  <div id="callbar" hidden></div>
+  <main id="stage-wrap">
+    <div id="stage">
+      <div id="wall">
+        <div id="window" aria-label="Window">
+          <div class="sky"><span class="sun"></span><span class="stars"></span><span class="cloud c1">☁️</span><span class="cloud c2">☁️</span></div>
+          <div class="pane"></div>
+          <div class="curtain l"></div><div class="curtain r"></div>
+        </div>
+        <div id="board" role="button" aria-label="Notes board">
+          <div class="board-title">📌 NOTES</div>
+          <div class="board-notes"></div>
+          <span class="board-dot" hidden></span>
+        </div>
+        <div id="door" role="button" aria-label="Door"><div class="door-sign"></div><div class="door-panel"><span class="knob"></span></div></div>
+        <div id="lamp" role="button" aria-label="Lights"><div class="cord"></div><div class="shade"></div><div class="glow"></div></div>
+        <canvas id="wall-canvas"></canvas>
+        <div class="baseboard"></div>
+      </div>
+      <div id="floor"><div class="rug"></div></div>
+      <div id="items"></div>
+      <div id="avatars"></div>
+      <div id="fx"></div>
+      <div id="dark"></div>
+      <div id="fade"></div>
+      <div id="itembar" class="popbar" hidden>
+        <button data-item="smaller" aria-label="Smaller">➖</button>
+        <button data-item="bigger" aria-label="Bigger">➕</button>
+        <button data-item="style" aria-label="Change color or frame">🎨</button>
+        <button data-item="flip" aria-label="Flip">↔️</button>
+        <button data-item="front" aria-label="Bring to front">⬆️</button>
+        <button data-item="delete" aria-label="Remove">🗑️</button>
+      </div>
+      <div id="emotebar" class="popbar" hidden></div>
+    </div>
+  </main>
+  <section id="dock" hidden></section>
+  <nav id="toolbar">
+    <button data-panel="chat"><span>💬</span>Chat<i class="badge" id="badge-chat" hidden></i></button>
+    <button data-action="call"><span>📞</span>Call</button>
+    <button data-panel="notes"><span>📌</span>Notes<i class="badge" id="badge-notes" hidden></i></button>
+    <button data-panel="decorate"><span>🎨</span>Decorate</button>
+    <button data-panel="draw"><span>✏️</span>Draw</button>
+    <button data-panel="games"><span>🕹️</span>Games</button>
+  </nav>
+</div>
+<input type="file" id="photo-input" accept="image/*" hidden>
+<div id="overlay" hidden></div>
+<div id="toasts"></div>
+<audio id="remote-audio" autoplay playsinline></audio>
+<script type="module" src="app.js"></script>
+</body>
+</html>

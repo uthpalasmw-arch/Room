@@ -1,0 +1,10 @@
+{
+  "rules": {
+    "rooms": {
+      "$room": {
+        ".read": "auth != null && $room.length >= 16",
+        ".write": "auth != null && $room.length >= 16"
+      }
+    }
+  }
+}
