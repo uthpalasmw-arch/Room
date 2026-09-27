@@ -2,7 +2,7 @@
 //  • Firebase Realtime Database (real, online, both phones)
 //  • Local demo (localStorage + BroadcastChannel, same device only)
 // Both expose the same API: on / once / set / update / push / remove / now / presence
-import { CONFIG } from './config.js?v=7';
+import { CONFIG } from './config.js?v=8';
 
 const FB = '10.12.2';
 const split = p => String(p || '').split('/').filter(Boolean);
@@ -12,13 +12,13 @@ const pushId = () =>
   Date.now().toString(36).padStart(9, '0') +
   Array.from(crypto.getRandomValues(new Uint8Array(6)), b => CH[b % 36]).join('');
 
-export async function createStore(roomId) {
+export async function createStore(roomId, { base = 'rooms' } = {}) {
   const demo = new URLSearchParams(location.search).has('demo');   // ?demo=1 → test without touching real data
-  if (CONFIG.firebase && CONFIG.firebase.apiKey && !demo) return firebaseStore(roomId);
-  return localStore(roomId);
+  if (CONFIG.firebase && CONFIG.firebase.apiKey && !demo) return firebaseStore(roomId, base);
+  return localStore(roomId, base);
 }
 
-async function firebaseStore(roomId) {
+async function firebaseStore(roomId, base) {
   const [{ initializeApp }, { getAuth, signInAnonymously }, D] = await Promise.all([
     import(`https://www.gstatic.com/firebasejs/${FB}/firebase-app.js`),
     import(`https://www.gstatic.com/firebasejs/${FB}/firebase-auth.js`),
@@ -27,7 +27,7 @@ async function firebaseStore(roomId) {
   const app = initializeApp(CONFIG.firebase);
   await signInAnonymously(getAuth(app));
   const db = D.getDatabase(app);
-  const r = p => D.ref(db, `rooms/${roomId}${p ? '/' + p : ''}`);
+  const r = p => D.ref(db, `${base}/${roomId}${p ? '/' + p : ''}`);
   const q = (p, opts) => (opts?.last ? D.query(r(p), D.limitToLast(opts.last)) : r(p));
   let offset = 0;
   D.onValue(D.ref(db, '.info/serverTimeOffset'), s => (offset = s.val() || 0));
@@ -63,8 +63,8 @@ async function firebaseStore(roomId) {
   };
 }
 
-function localStore(roomId) {
-  const KEY = 'ourroom:demo:' + roomId;
+function localStore(roomId, base = 'rooms') {
+  const KEY = (base === 'rooms' ? 'ourroom:demo:' : `ourroom:demo:${base}:`) + roomId;
   const bc = 'BroadcastChannel' in window ? new BroadcastChannel(KEY) : null;
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
   let tree = load();

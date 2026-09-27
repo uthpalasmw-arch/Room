@@ -5,6 +5,12 @@
         ".read": "auth != null && $room.length >= 16",
         ".write": "auth != null && $room.length >= 16"
       }
+    },
+    "guests": {
+      "$code": {
+        ".read": "auth != null && $code.length >= 16",
+        ".write": "auth != null && $code.length >= 16"
+      }
     }
   }
 }

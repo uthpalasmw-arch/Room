@@ -151,6 +151,7 @@ export function initGames(ctx) {
     openChess();
   }
   function openChess() {
+    if (ctx.isVisitor?.()) return ctx.showCard(`<div class="big">♟️</div><h2>Chess is the hosts’ game</h2><p class="muted">But you can play 🎨 Doodle Duel with everyone!</p><button class="btn" data-dismiss>OK</button>`, 'chess');
     if (!chess || !chess.b) return chessIntro();
     ctx.sitForGame();
     renderChess();

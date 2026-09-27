@@ -1,9 +1,9 @@
-import { createStore } from './store.js?v=7';
-import { createCall } from './call.js?v=7';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=7';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=7';
-import { initTV } from './tv.js?v=7';
-import { initGames } from './games.js?v=7';
+import { createStore } from './store.js?v=8';
+import { createCall } from './call.js?v=8';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=8';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=8';
+import { initTV } from './tv.js?v=8';
+import { initGames } from './games.js?v=8';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -212,8 +212,9 @@ const TIPS = [
 const DEFAULT_PROFILES = {
   a: { name: 'Player 1', face: '🐻', color: '#4f8cff' },
   b: { name: 'Player 2', face: '🐰', color: '#ff5fa2' },
+  v: { name: 'Visitor', face: '🦊', color: '#ff9f1c' },
 };
-const HOME = { a: { x: 38, y: 76 }, b: { x: 62, y: 78 } };
+const HOME = { a: { x: 38, y: 76 }, b: { x: 62, y: 78 }, v: { x: 50, y: 86 } };
 const ONLINE_WINDOW = 45000;
 const REACH = 26;
 
@@ -231,6 +232,9 @@ const seenLog = new Set(); let logInit = false;
 const lastEmote = {}, lastBonk = {}, lastKick = {}, lastLogged = {}, prevRoom = {};
 const photoCache = new Map();
 const cam = { z: 1, tx: 0, ty: 0, W: 1, H: 1 };
+// visitors (declared early: the boot code uses them straight away)
+let isVisitor = false, visitCode = null, gstore = null, gUnsub = null, visitHost = null, joinedAt = 0, myKnock = null, visitorInside = false;
+const shownKnocks = new Set();
 
 const sp = () => `spaces/${view}`;
 const roomW = () => (ROOMS[view].w || 1) * 100;
@@ -286,7 +290,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 7;
+const VERSION = 8;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -298,6 +302,7 @@ boot();
 
 async function boot() {
   const q = new URLSearchParams(location.search);
+  if (q.get('visit')) return visitorBoot(q.get('visit'));
   roomId = q.get('room') || lsGet('ourroom:room');
   if (!roomId) return showRoomChoice();
   lsSet('ourroom:room', roomId);
@@ -314,6 +319,12 @@ async function boot() {
   if (store.mode === 'local') $('#demo-badge').hidden = false;
 
   me = q.get('me') || lsGet(`ourroom:me:${roomId}`);
+  watchProfiles();
+  if (me !== 'a' && me !== 'b') { me = null; showWelcome(); }
+  else if (!(await store.once(`profiles/${me}`))) showSetup(me);
+  else showDoor();
+}
+function watchProfiles() {
   store.on('profiles', v => {
     S.profiles = v || {};
     if (other) {
@@ -324,9 +335,6 @@ async function boot() {
     if (other) { renderPresence(); renderAvatars(); renderBoard(); }
     if (overlayMode === 'welcome') showWelcome();
   });
-  if (me !== 'a' && me !== 'b') { me = null; showWelcome(); }
-  else if (!(await store.once(`profiles/${me}`))) showSetup(me);
-  else showDoor();
 }
 
 function newRoomId() {
@@ -414,7 +422,7 @@ function showNickCard() {
 // ── Entering ─────────────────────────────────────────────────
 async function enterRoom() {
   unlockAudio();
-  other = me === 'a' ? 'b' : 'a';
+  other = me === 'v' ? visitHost : me === 'a' ? 'b' : 'a';
   hideOverlay();
   $('#app').hidden = false;
 
@@ -468,7 +476,7 @@ async function enterRoom() {
     $, esc, store, sfx, me: () => me, other: () => other, called, together: () => isOnline(other), overlayMode: () => overlayMode,
     showCard, hideOverlay, toast, logAct, face: id => prof(id).face,
     refreshGames: () => { if (panel === 'games') renderGamesPanel(); },
-    sitForGame,
+    sitForGame, isVisitor: () => isVisitor,
   });
   store.on('chess', v => games.onChess(v));
   store.on('doodle', v => games.onDoodle(v));
@@ -480,13 +488,15 @@ async function enterRoom() {
   setupWallDrawing();
   await openSpace(view);
 
-  call = createCall(store, me, other, callUI);
+  call = createCall(store, me, callUI);
+  if (!isVisitor) store.on('visit', v => { S.visit = v; watchGuests(v?.code); if (panel === 'profile') renderProfilePanel(); });
+  setInterval(() => { call.prune(isOnline); tidyVisitor(); }, 20000);
   renderWindow();
   setInterval(() => { renderPresence(); renderAvatars(); renderWindow(); tickClocks(); }, 15000);
   setInterval(tickPower, 500);
   setInterval(spawnTick, 5000);
   setupBubble();
-  setTimeout(() => showAwaySummary(prevSeen), 900);
+  setTimeout(() => isVisitor ? showTips(true) : showAwaySummary(prevSeen), 900);
   if (!lsGet('ourroom:panhint')) {
     lsSet('ourroom:panhint', '1');
     const h = document.createElement('div'); h.className = 'pan-hint'; h.textContent = '👆 Swipe to look around · pinch to zoom';
@@ -661,11 +671,16 @@ function setupCamera() {
 
 // ── Presence ─────────────────────────────────────────────────
 function onPresence(v) {
-  const was = presenceInit && isOnline(other);
+  const was = presenceInit && isOnline(other), wasV = presenceInit && isOnline('v');
   S.presence = v || {};
   const now = isOnline(other);
   if (presenceInit && now && !was) { toast(`${esc(prof(other).face)} <b>${esc(called(other))}</b> came home! (${esc(ROOMS[roomOf(other)].name)})`); sfx.knock(); }
   if (presenceInit && was && !now) toast(`${esc(called(other))} left 👋`);
+  if (me !== 'v' && S.profiles?.v) {
+    const nowV = isOnline('v');
+    if (presenceInit && nowV && !wasV) { toast(`${esc(prof('v').face)} <b>${esc(called('v'))}</b> is visiting! 👋`); sfx.knock(); }
+    if (presenceInit && wasV && !nowV) toast(`${esc(called('v'))} went home 👋`);
+  }
   presenceInit = true;
   renderPresence(); renderAvatars(); renderBubble();
   if (panel === 'games') renderGamesPanel();
@@ -676,6 +691,8 @@ function renderPresence() {
   const mp = prof(me), op = prof(other), on = isOnline(other), rm = ROOMS[roomOf(other)];
   const myNick = nick(me);
   const moodTxt = m => m?.e ? `${esc(m.e)} ${esc(m.t || MOODS.find(x => x[0] === m.e)?.[1] || '')}` : '';
+  const vc = $('#visitor-chip');
+  if (vc) { const on = me !== 'v' && S.profiles?.v && isOnline('v'); vc.hidden = !on; if (on) vc.textContent = `${prof('v').face} ${called('v')}`; }
   $('#pill-me').innerHTML = `<span class="pface" style="--c:${esc(mp.color)}">${esc(mp.face)}</span><span class="pinfo"><b>${esc(myNick || mp.name)}</b><small>${mp.mood?.e ? moodTxt(mp.mood) : `${ROOMS[view].icon} ${ROOMS[view].name}`}</small></span>`;
   const status = !joined(other) ? 'Hasn’t joined yet — send the link!'
     : on ? `<i class="dot on"></i>${roomOf(other) === view ? 'Here with you' : `In the ${rm.name.toLowerCase()} ${rm.icon}`}` : `<i class="dot"></i>Away · ${ago(S.presence[other]?.ts)}`;
@@ -759,9 +776,9 @@ function restSeat(id) {
 function renderAvatars() {
   if (!other) return;
   const layer = $('#avatars');
-  for (const id of ['a', 'b']) {
+  for (const id of ['a', 'b', 'v']) {
     let el = layer.querySelector(`[data-id="${id}"]`);
-    const visible = id === me || (joined(id) && roomOf(id) === view);
+    const visible = id === me || (joined(id) && roomOf(id) === view && (id !== 'v' || isOnline('v')));
     if (!visible) { el?.remove(); continue; }
     const p = prof(id);
     if (!el) {
@@ -971,7 +988,7 @@ function openEmotebar(target) {
   const bar = $('#emotebar');
   const extra = target === me ? `<button data-mood-open aria-label="Set my mood">🙂</button>` :
     (powered(me) ? `<button data-kick="${target}" aria-label="Super kick" style="font-size:calc(7 * var(--u))">🦶</button>` : '') +
-    `<button data-bonk="${target}" aria-label="Bonk">🏏</button><button data-nick-open aria-label="Nickname">🏷️</button>`;
+    `<button data-bonk="${target}" aria-label="Bonk">🏏</button>${isVisitor || target === 'v' ? '' : '<button data-nick-open aria-label="Nickname">🏷️</button>'}`;
   bar.innerHTML = extra + EMOTES.map(e => `<button data-emote="${e}">${e}</button>`).join('');
   bar.hidden = false;
   positionEmotebar();
@@ -1452,6 +1469,7 @@ function clearWall() {
 
 // ── Notes board ──────────────────────────────────────────────
 const unread = kind => {
+  if (isVisitor && kind === 'notes') return 0;
   const read = +(lsGet(readKey(kind)) || 0);
   const list = kind === 'chat' ? S.msgs : Object.values(S.notes);
   return list.filter(m => m.by === other && m.ts > read).length;
@@ -1465,8 +1483,9 @@ function updateBadges() {
 }
 const sortedNotes = () => Object.entries(S.notes).map(([k, n]) => ({ k, ...n })).sort((a, b) => b.ts - a.ts);
 function renderBoard() {
-  const list = sortedNotes().slice(0, 3);
   const box = $('.board-notes');
+  if (isVisitor) { box.className = 'board-notes n0'; box.innerHTML = '<div class="board-empty">🔒 Private notes</div>'; return; }
+  const list = sortedNotes().slice(0, 3);
   box.className = 'board-notes n' + list.length;
   box.innerHTML = list.length
     ? list.map(n => `<div class="mini-note" style="--n:${esc(n.color)};--r:${(hash(n.k) % 5) - 2}deg"><span>${esc(n.text)}</span></div>`).join('')
@@ -1475,7 +1494,7 @@ function renderBoard() {
 
 // ── Chat ─────────────────────────────────────────────────────
 function onChat(v) {
-  const msgs = Object.entries(v || {}).map(([k, m]) => ({ k, ...m })).sort((a, b) => a.ts - b.ts || (a.k < b.k ? -1 : 1));
+  const msgs = Object.entries(v || {}).map(([k, m]) => ({ k, ...m })).filter(m => !isVisitor || m.ts >= joinedAt).sort((a, b) => a.ts - b.ts || (a.k < b.k ? -1 : 1));
   if (chatInit) {
     for (const m of msgs) {
       if (m.ts <= lastChatTs || m.by === me) continue;
@@ -1500,7 +1519,7 @@ function renderChat(forceBottom) {
     const sep = day !== lastDay ? `<div class="day">${day === new Date().toDateString() ? 'Today' : new Date(m.ts).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</div>` : '';
     lastDay = day;
     const jumbo = JUMBO.test(m.text) && [...m.text].length <= 8;
-    return `${sep}<div class="msg ${m.by === me ? 'mine' : 'theirs'} ${jumbo ? 'jumbo' : ''}">${esc(m.text)}<time>${fmtTime(m.ts)}</time></div>`;
+    return `${sep}<div class="msg ${m.by === me ? 'mine' : 'theirs'} ${jumbo ? 'jumbo' : ''}">${m.by !== me && m.by !== other ? `<small class="who">${esc(called(m.by))}</small>` : ''}${esc(m.text)}<time>${fmtTime(m.ts)}</time></div>`;
   }).join('') : `<div class="empty">No messages yet.<br>Say hi to ${esc(called(other))}! 👋</div>`;
   if (atBottom) list.scrollTop = list.scrollHeight;
 }
@@ -1579,6 +1598,7 @@ function renderChatPanel() {
 }
 
 function renderNotesPanel() {
+  if (isVisitor) { $('#dock').innerHTML = head('📌 Notes board') + '<div class="panel-body"><p class="status wait">🔒 The notes board is private to the hosts.</p></div>'; return; }
   $('#dock').innerHTML = head('📌 Notes board', 'Pinned in the living room until someone removes them') +
     `<div class="panel-body">
       <textarea class="field" id="note-text" maxlength="200" placeholder="Leave a little note… 💌"></textarea>
@@ -1682,6 +1702,12 @@ function renderGamesPanel() {
 }
 
 function renderProfilePanel() {
+  if (isVisitor) {
+    $('#dock').innerHTML = head('🙂 You (visiting)') + `<div class="panel-body" id="profile-body">${profileForm(me)}
+      <button class="btn wide" style="margin-top:16px" data-save-profile>Save</button>
+      <button class="btn ghost wide" style="margin-top:10px" data-visit-leave>🚪 Leave the house</button></div>`;
+    return;
+  }
   const theirNick = nick(me);
   $('#dock').innerHTML = head('🙂 You') +
     `<div class="panel-body" id="profile-body">
@@ -1695,6 +1721,10 @@ function renderProfilePanel() {
       <h4 style="margin-top:22px">Invite link</h4>
       <p class="muted">Your partner opens this on their phone to join. Keep it private!</p>
       <div class="linkbox"><input class="field" readonly value="${esc(inviteLink())}"><button class="btn small" data-share>Share</button></div>
+      <h4 style="margin-top:22px">👋 Visitors</h4>
+      <p class="muted">Send this to a friend. They knock, and one of you lets them in. It never shows your private room link.</p>
+      ${S.visit?.code ? `<div class="linkbox"><input class="field" readonly value="${esc(visitLink(S.visit.code))}"><button class="btn small" data-share-visit>Share</button></div>
+        <button class="btn ghost wide small" style="margin-top:8px" data-visit-renew>🔄 Make a new link (old one stops working)</button>` : '<button class="btn ghost wide small" data-visit-create>👋 Create a visitor link</button>'}
       <h4 style="margin-top:22px">More</h4>
       <div class="stack">
         <button class="btn ghost wide small" data-tips>❓ How it works</button>
@@ -1704,38 +1734,164 @@ function renderProfilePanel() {
     </div>`;
 }
 
-// ── Calls UI ─────────────────────────────────────────────────
-let callTimer = null, muted = false;
+// ── Calls UI (group calls: you two + a visitor) ─────────────
+let callTimer = null, muted = false, callKey = '', activeSince = 0;
 const callUI = {
-  set(s) {
+  set(s, info = {}) {
+    const key = s + JSON.stringify(info);
+    if (key === callKey) return;
+    callKey = key;
     stopRing(); clearInterval(callTimer);
-    const bar = $('#callbar'), n = esc(called(other));
+    const bar = $('#callbar');
+    const names = (info.members || []).map(id => esc(called(id))).join(' & ') || '…';
     if (overlayMode === 'incoming' && s !== 'incoming') hideOverlay();
+    if (s !== 'active') activeSince = 0;
     if (s === 'idle') { bar.hidden = true; muted = false; return; }
     if (s === 'incoming') {
       bar.hidden = true; startRing('ring');
-      return showCard(`<div class="big bounce">${esc(prof(other).face)}</div><h2>${n} is calling!</h2><p class="muted">📞 Voice call</p>
+      return showCard(`<div class="big bounce">${esc(prof(info.by).face)}</div><h2>${esc(called(info.by))} is calling!</h2><p class="muted">📞 Voice call</p>
         <div class="row" style="justify-content:center;margin-top:18px"><button class="btn red" data-decline>Decline</button><button class="btn green" data-accept>Answer</button></div>`, 'incoming');
     }
     bar.hidden = false; bar.className = s;
-    if (s === 'calling') { startRing('ringback'); bar.innerHTML = `<span class="pulse">📞</span><span class="grow">Calling ${n}…</span><button class="hang" data-hangup aria-label="Hang up">✕</button>`; }
-    if (s === 'connecting') bar.innerHTML = `<span class="pulse">🔗</span><span class="grow">Connecting…</span><button class="hang" data-hangup aria-label="Hang up">✕</button>`;
+    if (s === 'available') bar.innerHTML = `<span>📞</span><span class="grow">Call going on with ${names}</span><button class="join" data-accept>Join</button>`;
+    if (s === 'calling') { startRing('ringback'); bar.innerHTML = `<span class="pulse">📞</span><span class="grow">Calling…</span><button class="hang" data-hangup aria-label="Hang up">✕</button>`; }
     if (s === 'active') {
-      const start = Date.now();
-      bar.innerHTML = `<span>🔊</span><span class="grow">On call with ${n} · <b id="call-time">0:00</b></span><button data-mute aria-label="Mute">${muted ? '🔇' : '🎙️'}</button><button class="hang" data-hangup aria-label="Hang up">✕</button>`;
-      callTimer = setInterval(() => {
-        const s = Math.floor((Date.now() - start) / 1000);
+      activeSince = activeSince || Date.now();
+      bar.innerHTML = `<span>🔊</span><span class="grow">On call with ${names} · <b id="call-time">0:00</b></span><button data-mute aria-label="Mute">${muted ? '🔇' : '🎙️'}</button><button class="hang" data-hangup aria-label="Hang up">✕</button>`;
+      const tick = () => {
+        const s = Math.floor((Date.now() - activeSince) / 1000);
         const el = $('#call-time'); if (el) el.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-      }, 1000);
+      };
+      tick(); callTimer = setInterval(tick, 1000);
     }
   },
   error(msg) { toast(esc(msg), 5500); },
 };
 function onCallButton() {
   if (call.state !== 'idle') return;
-  if (!isOnline(other)) return toast(`${esc(called(other))} isn’t home right now 💤<br>Leave a message 💬 or a note 📌!`);
+  const home = people().filter(id => id !== me && isOnline(id));
+  if (!home.length) return toast(`${esc(called(other))} isn’t home right now 💤<br>Leave a message 💬 or a note 📌!`);
   call.start();
 }
+
+// ── 👋 Visitors ──────────────────────────────────────────────
+// A visitor gets a separate link (?visit=CODE). They knock at /guests/CODE; one of you lets them in,
+// and only then do they learn the room. When they leave, their character disappears.
+const people = () => ['a', 'b', ...(S.profiles?.v ? ['v'] : [])];
+const visitLink = code => `${location.origin}${location.pathname}?visit=${code}`;
+
+// hosts: listen at the visitor door
+async function watchGuests(code) {
+  if (code === visitCode) return;
+  gUnsub?.(); gUnsub = null; visitCode = code;
+  if (!code) return;
+  gstore = await createStore(code, { base: 'guests' });
+  gUnsub = gstore.on('', g => {
+    S.guest = g;
+    const k = g?.knock;
+    if (g?.state === 'knock' && k && store.now() - k.ts < 180000 && !shownKnocks.has(k.id)) {
+      shownKnocks.add(k.id);
+      if (overlayMode === 'incoming') return;
+      sfx.knock(); navigator.vibrate?.([120, 80, 120]);
+      showCard(`<div class="door-big">🚪</div><h2>${esc(k.face)} ${esc(k.name)} is at the door!</h2>
+        <p class="muted">They’d like to visit your home 👋</p>
+        <div class="row" style="justify-content:center;margin-top:14px"><button class="btn ghost" data-visit-no>Not now</button><button class="btn green" data-visit-yes>Let them in 🏠</button></div>`, 'knock');
+    }
+    if (g?.state !== 'knock' && overlayMode === 'knock') hideOverlay();
+  });
+}
+function letVisitorIn(yes) {
+  const k = S.guest?.knock; hideOverlay();
+  if (!k || !gstore) return;
+  if (!yes) { gstore.update('', { state: 'declined' }); return; }
+  const now = store.now();
+  gstore.update('', { state: 'in', room: roomId, by: me, at: now });
+  store.set('profiles/v', { name: k.name, face: k.face, color: k.color, hat: k.hat || '', visitor: true, since: now, host: me });
+  store.set('avatars/v', { x: DOOR_SPOT[view].x, y: DOOR_SPOT[view].y + 8, rm: view });
+  store.push('log', { by: me, text: `let ${k.name} ${k.face} in to visit 👋`, ts: now });
+}
+async function createVisitLink(renew) {
+  if (renew && visitCode && gstore) gstore.update('', { state: 'closed', room: null });
+  const code = newRoomId();
+  const g = await createStore(code, { base: 'guests' });
+  await g.set('', { state: 'open', ts: store.now(), hosts: [prof('a').name, prof('b').name] });
+  await store.set('visit', { code, ts: store.now() });
+  toast(renew ? '🔄 New visitor link made — the old one no longer works' : '👋 Visitor link ready!');
+  if (panel === 'profile') renderProfilePanel();
+}
+// when the visitor leaves (or their phone goes quiet for a while), tidy up so they must knock next time
+function tidyVisitor() {
+  if (isVisitor || !S.profiles?.v) return;
+  const p = S.presence.v;
+  if (isOnline('v') || store.now() - (p?.ts || S.profiles.v.since || 0) < 90000) return;
+  ['profiles/v', 'avatars/v', 'presence/v', 'nicks/v', 'typing/v'].forEach(x => store.remove(x));
+  if (gstore && S.guest?.state === 'in') gstore.update('', { state: 'open', room: null, knock: null });
+}
+
+// visitor side
+async function visitorBoot(code) {
+  isVisitor = true; visitCode = code;
+  try { gstore = await createStore(code, { base: 'guests' }); }
+  catch (err) { return showCard(`<div class="big">😵</div><h2>Couldn’t reach the house</h2><p class="muted">${esc(err.message || err)}</p><button class="btn" data-reload>Try again</button>`, 'error'); }
+  const g = await gstore.once('');
+  if (!g || g.state === 'closed') return showCard(`<div class="big">🔒</div><h2>This invite isn’t active anymore</h2><p class="muted">Ask for a new visitor link 💌</p>`, 'error');
+  if (sessionStorage.getItem('ourroom:left:' + code)) {
+    sessionStorage.removeItem('ourroom:left:' + code);
+    watchDoor();
+    return showCard('<div class="big">👋</div><h2>Thanks for visiting!</h2><p class="muted">You’ve left the house.</p><button class="btn" data-visit-again>🚪 Knock again</button>', 'error');
+  }
+  myKnock = sessionStorage.getItem('ourroom:knock:' + code);
+  if (g.state === 'in' && g.knock?.id && g.knock.id === myKnock) return enterAsVisitor(g);
+  watchDoor();
+  showVisitorSetup(g);
+}
+function watchDoor() { if (gstore && !gstore._watched) { gstore._watched = true; gstore.on('', onDoorAnswer); } }
+function showVisitorSetup(g) {
+  const hosts = (g?.hosts || []).filter(Boolean).join(' & ') || 'your friends';
+  showCard(`<div class="big bounce">🏠</div><h2>You’re invited!</h2><p class="muted">to <b>${esc(hosts)}</b>’s home 💕</p>
+    ${profileForm('v')}
+    <button class="btn wide" style="margin-top:18px" data-visit-knock>🚪 Knock knock!</button>`, 'setup');
+}
+function knock() {
+  const p = readProfileForm($('#overlay'), 'v');
+  myKnock = Math.random().toString(36).slice(2, 12);
+  sessionStorage.setItem('ourroom:knock:' + visitCode, myKnock);
+  gstore.update('', { state: 'knock', knock: { id: myKnock, name: p.name, face: p.face, color: p.color, hat: p.hat, ts: gstore.now() } });
+  sfx.knock();
+  showCard(`<div class="door-big">🚪</div><h2>Knock knock…</h2><p class="muted">Waiting for someone to open the door 🙈</p>`, 'waiting');
+}
+function onDoorAnswer(g) {
+  if (visitorInside) {
+    if (g?.state !== 'in') { visitorInside = false; showCard(`<div class="big">👋</div><h2>You’ve left the house</h2><p class="muted">Thanks for visiting! Knock again anytime with the same link.</p><button class="btn" data-reload>🚪 Knock again</button>`, 'error'); }
+    return;
+  }
+  if (!g || g.state === 'closed') return showCard(`<div class="big">🔒</div><h2>This invite isn’t active anymore</h2>`, 'error');
+  if (g.knock?.id !== myKnock) return;
+  if (g.state === 'in') return enterAsVisitor(g);
+  if (g.state === 'declined') showCard(`<div class="big">🙈</div><h2>They can’t let you in right now</h2><p class="muted">Try again a bit later!</p><button class="btn" data-visit-knock-again>🚪 Knock again</button>`, 'waiting');
+}
+async function enterAsVisitor(g) {
+  watchDoor();   // hear it if the hosts close the door
+  visitorInside = true;
+  roomId = g.room; visitHost = g.by || 'a'; joinedAt = g.at || 0;
+  try { store = await createStore(roomId); } catch (err) { return showCard(`<div class="big">😵</div><h2>Couldn’t open the house</h2><p class="muted">${esc(err.message || err)}</p>`, 'error'); }
+  store.onError = msg => toast(esc(msg), 6000);
+  me = 'v';
+  watchProfiles();
+  await store.once('profiles');
+  enterRoom();
+}
+function leaveAsVisitor() {
+  if (!confirm('Leave the house?')) return;
+  const now = store.now();
+  store.update('presence/v', { online: false, ts: now });
+  ['avatars/v', 'profiles/v', 'typing/v'].forEach(x => store.remove(x));
+  gstore?.update('', { state: 'open', room: null, knock: null });
+  sessionStorage.removeItem('ourroom:knock:' + visitCode);
+  sessionStorage.setItem('ourroom:left:' + visitCode, '1');
+  setTimeout(() => location.reload(), 400);   // stop being 'home' right away
+}
+
 
 // ── 😊 Mood ─────────────────────────────────────────────────
 function showMood() {
@@ -1945,6 +2101,19 @@ function route(d, t) {
   if (kitchen?.route(d)) return;
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
+  if ('visitYes' in d || 'visitNo' in d) return letVisitorIn('visitYes' in d);
+  if ('visitCreate' in d) return createVisitLink(false);
+  if ('visitRenew' in d) { if (confirm('Make a new visitor link? The old link will stop working.')) createVisitLink(true); return; }
+  if ('shareVisit' in d) {
+    const url = visitLink(S.visit.code);
+    if (navigator.share) navigator.share({ title: 'Come visit us!', text: 'Come visit our home 🏠👋', url }).catch(() => {});
+    else navigator.clipboard?.writeText(url).then(() => toast('Link copied 📋'), () => toast('Copy the link from the box above'));
+    return;
+  }
+  if ('visitKnock' in d) return knock();
+  if ('visitKnockAgain' in d) return knock();
+  if ('visitAgain' in d) return gstore.once('').then(showVisitorSetup);
+  if ('visitLeave' in d) return leaveAsVisitor();
   if (d.mini === 'full') { toggleMini(false); hideOverlay(); return openPanel('chat'); }
   if (games?.route(d, t)) return;
   if ('moodOpen' in d) { hideEmotebar(); return showMood(); }
@@ -2053,7 +2222,7 @@ function route(d, t) {
   if (d.noteColor) { noteColor = d.noteColor; return markSwatch(t, 'data-note-color'); }
   if ('pin' in d) return pinNote();
   if (d.delNote) { if (confirm('Remove this note?')) store.remove(`notes/${d.delNote}`); return; }
-  if ('accept' in d) return call.accept();
+  if ('accept' in d) return call.join();
   if ('decline' in d) return call.decline();
   if ('hangup' in d) return call.hangup();
   if ('mute' in d) { muted = call.mute(); t.textContent = muted ? '🔇' : '🎙️'; return; }

@@ -978,3 +978,6 @@ button.game:active { transform: scale(.98); }
 .tv-seek { flex: 1; height: 28px; accent-color: #ff4d6d; cursor: pointer; }
 .tv-btnrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .board .sq { width: 100%; height: 100%; }
+#visitor-chip { background: #ffd60a; color: #3b2a00; font-weight: 700; font-size: 11px; padding: 4px 8px; border-radius: 99px; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+#callbar.available { background: #2b2d42; }
+#callbar button.join { width: auto; padding: 0 14px; border-radius: 99px; background: #2ecc71; font-weight: 700; font-size: 14px; }
