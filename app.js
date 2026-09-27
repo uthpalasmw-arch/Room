@@ -1,9 +1,9 @@
-import { createStore } from './store.js';
-import { createCall } from './call.js';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js';
-import { initTV } from './tv.js';
-import { initGames } from './games.js';
+import { createStore } from './store.js?v=5';
+import { createCall } from './call.js?v=5';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=5';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=5';
+import { initTV } from './tv.js?v=5';
+import { initGames } from './games.js?v=5';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -285,6 +285,15 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 }
 
 // ── Boot ─────────────────────────────────────────────────────
+// Phones cache the page; ask the server for the newest one and reload once if we're behind.
+const VERSION = 5;
+fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
+  const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
+  if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
+    sessionStorage.setItem('ourroom:updated:' + live, '1');
+    location.reload();
+  }
+}).catch(() => {});
 boot();
 
 async function boot() {
