@@ -129,28 +129,61 @@ export function initTV(ctx) {
     if (on && !big) ctlTimer = setTimeout(() => showCtl(false), 6000);
     renderUI();
   }
+  // Build the control bar once; afterwards only update its values (so dragging the seek bar isn't interrupted)
+  let seeking = false, uiKey = '';
   function renderUI() {
     strip.hidden = !cur;
     ctl.hidden = !cur || !(ctlOpen || big);
     if (!cur) return;
     const title = canUse() ? player.getVideoData?.()?.title : '';
     const t = canUse() ? player.getCurrentTime() : target(), d = canUse() ? player.getDuration() : 0;
-    strip.innerHTML = `<button class="grow" data-tv="ctl">🎬 ${esc(title || 'Video on the TV')}</button>
-      <button data-tv="toggle" aria-label="Play or pause">${cur.playing ? '⏸' : '▶️'}</button>
-      <button data-tv="mute" aria-label="Mute everywhere">${muted ? '🔇' : '🔊'}</button>
-      <button data-tv="big" aria-label="Big screen">${big ? '📺' : '⛶'}</button>`;
-    ctl.innerHTML = `<button data-tv="back" aria-label="Back 10 seconds">⏪</button>
-      <button data-tv="toggle" class="main" aria-label="Play or pause">${cur.playing ? '⏸' : '▶️'}</button>
-      <button data-tv="fwd" aria-label="Forward 10 seconds">⏩</button>
-      <span class="tv-time">${d ? `${fmt(t)} / ${fmt(d)}` : fmt(t)}</span>
-      <button data-tv="voldown" aria-label="Volume down">🔉</button>
-      <button data-tv="mute" class="tv-vol" aria-label="Mute">${muted ? '🔇' : `${vol}%`}</button>
-      <button data-tv="volup" aria-label="Volume up">🔊</button>
-      <button data-tv="big" class="wide" aria-label="${big ? 'Back to TV' : 'Big screen'}">${big ? '📺 Back to TV' : '⛶ Big screen'}</button>
-      <button data-tv="pick" aria-label="Another video">🔗</button>
-      <button data-tv="clear" aria-label="Clear the video">⏏️</button>`;
+    const key = [title, cur.playing, muted, big].join('|');
+    if (key !== uiKey || !strip.firstChild) {
+      uiKey = key;
+      strip.innerHTML = `<button class="grow" data-tv="ctl">🎬 ${esc(title || 'Video on the TV')}</button>
+        <button data-tv="toggle" aria-label="Play or pause">${cur.playing ? '⏸' : '▶️'}</button>
+        <button data-tv="mute" aria-label="Mute everywhere">${muted ? '🔇' : '🔊'}</button>
+        <button data-tv="big" aria-label="Big screen">${big ? '📺' : '⛶'}</button>`;
+    }
+    if (!ctl.firstChild) {
+      ctl.innerHTML = `<div class="tv-seekrow"><span class="tv-now">0:00</span><input type="range" class="tv-seek" min="0" max="100" step="1" value="0" aria-label="Seek"><span class="tv-dur">0:00</span></div>
+        <div class="tv-btnrow">
+          <button data-tv="back" aria-label="Back 10 seconds">⏪</button>
+          <button data-tv="toggle" class="main" aria-label="Play or pause"></button>
+          <button data-tv="fwd" aria-label="Forward 10 seconds">⏩</button>
+          <button data-tv="voldown" aria-label="Volume down">🔉</button>
+          <button data-tv="mute" class="tv-vol" aria-label="Mute"></button>
+          <button data-tv="volup" aria-label="Volume up">🔊</button>
+          <button data-tv="size" aria-label="TV size">📏</button>
+          <button data-tv="big" class="wide"></button>
+          <button data-tv="pick" aria-label="Another video">🔗</button>
+          <button data-tv="clear" aria-label="Clear the video">⏏️</button>
+        </div>`;
+      const seek = ctl.querySelector('.tv-seek');
+      seek.addEventListener('input', () => { seeking = true; ctl.querySelector('.tv-now').textContent = fmt(+seek.value); });
+      seek.addEventListener('change', () => { seeking = false; seekTo(+seek.value); });
+      seek.addEventListener('pointerdown', () => { seeking = true; showCtl(true); });
+    }
+    ctl.querySelector('[data-tv="toggle"]').textContent = cur.playing ? '⏸' : '▶️';
+    ctl.querySelector('.tv-vol').textContent = muted ? '🔇' : `${vol}%`;
+    ctl.querySelector('[data-tv="big"]').textContent = big ? '📺 Back to TV' : '⛶ Big screen';
+    ctl.querySelector('[data-tv="size"]').hidden = big;
+    if (!seeking) {
+      const seek = ctl.querySelector('.tv-seek');
+      seek.max = Math.max(1, Math.floor(d || 1)); seek.value = Math.floor(t);
+      ctl.querySelector('.tv-now').textContent = fmt(t);
+      ctl.querySelector('.tv-dur').textContent = d ? fmt(d) : '–:––';
+      seek.style.setProperty('--p', d ? (t / d * 100).toFixed(2) + '%' : '0%');
+    }
   }
-  setInterval(() => { if (cur) { sync(); } }, 3000);
+  function seekTo(pos) {
+    if (!cur || !canUse()) return;
+    pos = clamp(pos, 0, player.getDuration() || 1e6);
+    player.seekTo(pos, true);
+    store.update('tv', { pos, at: now() });
+    showCtl(true);
+    setTimeout(renderUI, 150);
+  }
   setInterval(() => { if (cur && (ctlOpen || big)) renderUI(); }, 1000);
 
   function act(what) {
@@ -159,6 +192,7 @@ export function initTV(ctx) {
     if (what === 'channel') { ctx.hideOverlay(); return ctx.changeChannel(); }
     if (what === 'ctl') return showCtl(!ctlOpen);
     if (what === 'big') { big = !big; showCtl(true); return; }
+    if (what === 'size') { ctx.resizeTV(); showCtl(true); return; }
     if (what === 'clear') { store.remove('tv'); ctx.hideOverlay(); big = false; return; }
     if (what === 'kick') { if (canUse()) { player.playVideo(); applyVolume(); } $('.tv-tap', wrap).hidden = true; return; }
     if (what === 'unmute') { muted = false; applyVolume(); if (canUse() && cur?.playing) player.playVideo(); return; }

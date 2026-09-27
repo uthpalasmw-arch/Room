@@ -189,7 +189,7 @@ export function initGames(ctx) {
       cells.push(`<button class="${cls}" data-sq="${i}">${p !== '.' ? `<span class="pc ${colorOf(p)}">${glyph(p)}</span>` : ''}</button>`);
     }
     const oppColor = mc === 'w' ? 'b' : 'w';
-    ctx.showCard(`<div class="cook-head"><span class="dish">♟️</span><div><b>Chess</b><small>You play ${mc === 'w' ? 'white ♔' : 'black ♚'} vs ${esc(ctx.called(other()))}</small></div><button class="x" data-dismiss aria-label="Close">✕</button></div>
+    const html = `<div class="cook-head"><span class="dish">♟️</span><div><b>Chess</b><small>You play ${mc === 'w' ? 'white ♔' : 'black ♚'} vs ${esc(ctx.called(other()))}</small></div><button class="x" data-dismiss aria-label="Close">✕</button></div>
       <div class="chess-status ${mine ? 'go' : ''}">${status}</div>
       <div class="caps">${(oppColor === 'w' ? capB : capW).join('')}&nbsp;</div>
       <div class="board">${cells.join('')}</div>
@@ -200,7 +200,52 @@ export function initGames(ctx) {
         ${over ? `<button class="btn" data-chess="new">🔄 New game</button>`
           : `<button class="btn ghost small" data-chess="offerdraw" ${s.draw === me() ? 'disabled' : ''}>🤝 ${s.draw === me() ? 'Draw offered' : 'Offer draw'}</button>
              <button class="btn ghost small" data-chess="resign">🏳️ Resign</button>`}
-      </div>`, 'chess', 'cook');
+      </div>`;
+    // Update the board in place (no pop-in animation) so pieces don't jump under your finger.
+    const body = $('#chess-body');
+    if (ctx.overlayMode() === 'chess' && body) body.innerHTML = html;
+    else { ctx.showCard(`<div id="chess-body">${html}</div>`, 'chess', 'cook'); bindBoard(); }
+  }
+  // Tap a piece then a square — or drag the piece there.
+  let drag = null;
+  function bindBoard() {
+    const box = $('#chess-body'); if (!box) return;
+    const sqAt = (x, y) => document.elementFromPoint(x, y)?.closest('[data-sq]');
+    box.addEventListener('pointerdown', e => {
+      const sq = e.target.closest('[data-sq]'); if (!sq) return;
+      e.preventDefault();
+      const i = +sq.dataset.sq, s = chess, mc = myColor();
+      const mineHere = s && mc && s.t === mc && s.st === 'play' && colorOf(s.b[i]) === mc;
+      tapSquare(i);
+      if (mineHere) drag = { from: i, x: e.clientX, y: e.clientY, moved: false, ghost: null };
+    });
+    box.addEventListener('pointermove', e => {
+      if (!drag) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+      if (!drag.moved) {
+        drag.moved = true;
+        const p = chess.b[drag.from];
+        drag.ghost = document.createElement('div');
+        drag.ghost.className = 'chess-ghost';
+        drag.ghost.innerHTML = `<span class="pc ${colorOf(p)}">${glyph(p)}</span>`;
+        document.body.append(drag.ghost);
+        box.querySelector(`[data-sq="${drag.from}"] .pc`)?.classList.add('lifted');
+      }
+      drag.ghost.style.left = e.clientX + 'px'; drag.ghost.style.top = e.clientY + 'px';
+      box.querySelectorAll('.sq.hover').forEach(x => x.classList.remove('hover'));
+      sqAt(e.clientX, e.clientY)?.classList.add('hover');
+    });
+    const end = e => {
+      if (!drag) return;
+      const d = drag; drag = null;
+      d.ghost?.remove();
+      if (!d.moved) return;
+      const sq = sqAt(e.clientX, e.clientY);
+      if (sq && +sq.dataset.sq !== d.from) tapSquare(+sq.dataset.sq);
+      else renderChess();
+    };
+    box.addEventListener('pointerup', end);
+    box.addEventListener('pointercancel', end);
   }
   function tapSquare(i) {
     const s = chess; if (!s || s.st !== 'play') return;
@@ -412,7 +457,7 @@ export function initGames(ctx) {
   function route(d, t) {
     if (d.game === 'chess') { openChess(); return true; }
     if (d.game === 'doodle') { openDoodle(); return true; }
-    if (d.sq !== undefined) { tapSquare(+d.sq); return true; }
+    if (d.sq !== undefined) return true;
     if (d.promo) { const m = promoMove?.find(x => x.promo === d.promo); if (m) play(m); return true; }
     if (d.chess) { chessAct(d.chess); return true; }
     if (d.doodle) { doodleAct(d.doodle); return true; }

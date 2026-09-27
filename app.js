@@ -1,9 +1,9 @@
-import { createStore } from './store.js?v=6';
-import { createCall } from './call.js?v=6';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=6';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=6';
-import { initTV } from './tv.js?v=6';
-import { initGames } from './games.js?v=6';
+import { createStore } from './store.js?v=7';
+import { createCall } from './call.js?v=7';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=7';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=7';
+import { initTV } from './tv.js?v=7';
+import { initGames } from './games.js?v=7';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -286,7 +286,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 6;
+const VERSION = 7;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -448,6 +448,14 @@ async function enterRoom() {
     $, esc, store, sfx, me: () => me, called, showCard, hideOverlay, toast, lsGet, lsSet,
     changeChannel: () => { const t = Object.entries(S.items).find(([, i]) => i.k === 'tv'); if (t) store.update(`${sp()}/items/${t[0]}`, { ch: ((t[1].ch ?? 0) + 1) % TV_CHANNELS.length }); },
     onChange: () => renderItems(),
+    resizeTV: () => {
+      const t = Object.entries(S.items).find(([, i]) => i.k === 'tv');
+      if (!t) return toast('📏 Go to the room with the TV to change its size');
+      const sizes = [1, 1.3, 1.6, 2, 2.5], cur = t[1].s || 1;
+      const next = sizes.find(s => s > cur + 0.01) || sizes[0];
+      store.update(`${sp()}/items/${t[0]}`, { s: next });
+      toast(`📏 TV size: ${['S', 'M', 'L', 'XL', 'XXL'][sizes.indexOf(next)]}`, 1500);
+    },
     tvScreen: () => $('#items .item[data-kind="furn:tv"] .scr'),
     otherOnline: () => isOnline(other),
   });
@@ -477,6 +485,7 @@ async function enterRoom() {
   setInterval(() => { renderPresence(); renderAvatars(); renderWindow(); tickClocks(); }, 15000);
   setInterval(tickPower, 500);
   setInterval(spawnTick, 5000);
+  setupBubble();
   setTimeout(() => showAwaySummary(prevSeen), 900);
   if (!lsGet('ourroom:panhint')) {
     lsSet('ourroom:panhint', '1');
@@ -658,7 +667,7 @@ function onPresence(v) {
   if (presenceInit && now && !was) { toast(`${esc(prof(other).face)} <b>${esc(called(other))}</b> came home! (${esc(ROOMS[roomOf(other)].name)})`); sfx.knock(); }
   if (presenceInit && was && !now) toast(`${esc(called(other))} left 👋`);
   presenceInit = true;
-  renderPresence(); renderAvatars();
+  renderPresence(); renderAvatars(); renderBubble();
   if (panel === 'games') renderGamesPanel();
 }
 
@@ -1447,7 +1456,7 @@ const unread = kind => {
   const list = kind === 'chat' ? S.msgs : Object.values(S.notes);
   return list.filter(m => m.by === other && m.ts > read).length;
 };
-function markRead(kind) { lsSet(readKey(kind), String(store.now())); updateBadges(); }
+function markRead(kind) { lsSet(readKey(kind), String(store.now())); updateBadges(); if (kind === 'chat') { const b = $('#chatbub .badge'); if (b) b.hidden = true; } }
 function updateBadges() {
   const c = unread('chat'), n = unread('notes');
   $('#badge-chat').hidden = !c; $('#badge-chat').textContent = c > 9 ? '9+' : c;
@@ -1479,6 +1488,7 @@ function onChat(v) {
   S.msgs = msgs;
   if (panel === 'chat') { renderChat(); markRead('chat'); }
   updateBadges();
+  renderBubble();
 }
 const fmtTime = ts => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 function renderChat(forceBottom) {
@@ -1511,6 +1521,7 @@ function onTyping() {
 function renderTyping() {
   const t = S.typing[other];
   const on = t && store.now() - t < 5000;
+  if (bubOpen) renderMini();
   const el = $('#typing');
   if (el) el.textContent = on ? `${called(other)} is typing…` : '';
   const b = $(`.avatar[data-id="${other}"] .bubble`);
@@ -1544,6 +1555,8 @@ function openPanel(name) {
   $$('#toolbar [data-panel]').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
   $('#stage').classList.toggle('decorating', name === 'decorate');
   $('#stage').classList.toggle('drawing', name === 'draw');
+  renderBubble();
+  if (name === 'chat' && bubOpen) toggleMini(false);
   ({ chat: renderChatPanel, notes: renderNotesPanel, decorate: renderDecoratePanel, draw: renderDrawPanel, games: renderGamesPanel, profile: renderProfilePanel })[name]();
 }
 function closePanel() {
@@ -1552,6 +1565,7 @@ function closePanel() {
   $$('#toolbar [data-panel]').forEach(b => b.classList.remove('active'));
   $('#stage').classList.remove('decorating', 'drawing', 'erasing');
   selectItem(null);
+  renderBubble();
 }
 
 function renderChatPanel() {
@@ -1844,10 +1858,94 @@ function sitForGame() {
   store.update(`avatars/${me}`, { seat: { id: chair[0], i: 0 }, x: pos.x, y: pos.y });
 }
 
+// ── 💬 Floating chat bubble (works over games too) ──────────
+let bubOpen = false;
+function setupBubble() {
+  const bub = $('#chatbub');
+  bub.hidden = false;
+  let pos = null;
+  try { pos = JSON.parse(lsGet('ourroom:bub')); } catch {}
+  const place = (x, y) => {
+    x = clamp(x, 6, innerWidth - 62); y = clamp(y, 60, innerHeight - 130);
+    bub.style.left = x + 'px'; bub.style.top = y + 'px';
+    bub._x = x; bub._y = y;
+    if (bubOpen) placeMini();
+  };
+  place(pos?.x ?? innerWidth - 70, pos?.y ?? innerHeight * 0.55);
+  let d = null;
+  bub.addEventListener('pointerdown', e => { e.preventDefault(); try { bub.setPointerCapture(e.pointerId); } catch {} d = { x: e.clientX, y: e.clientY, bx: bub._x, by: bub._y, moved: false }; });
+  bub.addEventListener('pointermove', e => {
+    if (!d) return;
+    if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 7) return;
+    d.moved = true;
+    place(d.bx + e.clientX - d.x, d.by + e.clientY - d.y);
+  });
+  const up = () => {
+    if (!d) return;
+    const moved = d.moved; d = null;
+    if (moved) { lsSet('ourroom:bub', JSON.stringify({ x: bub._x, y: bub._y })); return; }
+    unlockAudio();
+    toggleMini(!bubOpen);
+  };
+  bub.addEventListener('pointerup', up);
+  bub.addEventListener('pointercancel', () => { d = null; });
+  addEventListener('resize', () => place(bub._x, bub._y));
+  renderBubble();
+}
+function renderBubble() {
+  const bub = $('#chatbub'); if (!bub || !other) return;
+  const p = prof(other);
+  $('.cb-face', bub).textContent = p.face;
+  bub.style.setProperty('--c', p.color);
+  bub.hidden = panel === 'chat';
+  const n = unread('chat'), badge = $('.badge', bub);
+  badge.hidden = !n; badge.textContent = n > 9 ? '9+' : n;
+  bub.classList.toggle('online', isOnline(other));
+  if (bubOpen) renderMini();
+}
+function toggleMini(on) {
+  bubOpen = on;
+  $('#minichat').hidden = !on;
+  if (on) { renderMini(true); markRead('chat'); setTimeout(() => $('#mini-input')?.focus(), 50); }
+}
+function placeMini() {
+  const bub = $('#chatbub'), box = $('#minichat');
+  const w = Math.min(320, innerWidth - 16);
+  box.style.width = w + 'px';
+  const left = clamp(bub._x + 28 - w / 2, 8, innerWidth - w - 8);
+  box.style.left = left + 'px';
+  const h = box.offsetHeight || 190;
+  const above = bub._y - h - 10;
+  box.style.top = (above > 50 ? above : bub._y + 64) + 'px';
+}
+// The card is built once; new messages only refresh the list (so the keyboard never closes while typing)
+function renderMini() {
+  const box = $('#minichat'); if (!box || box.hidden) return;
+  if (!box.firstChild) {
+    box.innerHTML = `<div class="mini-head"><span class="pface"></span><b></b><button class="mini-btn" data-mini="full" aria-label="Open full chat">↗</button><button class="mini-btn" data-mini="close" aria-label="Close">✕</button></div>
+      <div class="mini-list"></div><div class="typing"></div>
+      <form class="chat-form" id="mini-form"><input class="field" id="mini-input" placeholder="Message…" autocomplete="off" maxlength="1000" enterkeyhint="send"><button class="send" aria-label="Send">➤</button></form>`;
+    const inp = $('#mini-input');
+    $('#mini-form').addEventListener('submit', e => { e.preventDefault(); sendChat(inp.value); inp.value = ''; inp.focus(); });
+    inp.addEventListener('input', onTyping);
+  }
+  const p = prof(other), face = $('.mini-head .pface', box);
+  face.textContent = p.face; face.style.setProperty('--c', p.color);
+  $('.mini-head b', box).textContent = called(other);
+  const last = S.msgs.slice(-2);
+  $('.mini-list', box).innerHTML = last.length ? last.map(m => `<div class="msg ${m.by === me ? 'mine' : 'theirs'} ${JUMBO.test(m.text) && [...m.text].length <= 8 ? 'jumbo' : ''}">${m.by !== me && m.by !== other ? `<small class="who">${esc(called(m.by))}</small>` : ''}${esc(m.text)}<time>${fmtTime(m.ts)}</time></div>`).join('') : '<div class="empty">Say hi 👋</div>';
+  const t = S.typing[other];
+  $('.typing', box).textContent = t && store.now() - t < 5000 ? `${called(other)} is typing…` : '';
+  placeMini();
+  markRead('chat');
+}
+
 // ── Global click routing ─────────────────────────────────────
 function route(d, t) {
   if (kitchen?.route(d)) return;
   if (d.tv) return tv?.act(d.tv);
+  if (d.mini === 'close') return toggleMini(false);
+  if (d.mini === 'full') { toggleMini(false); hideOverlay(); return openPanel('chat'); }
   if (games?.route(d, t)) return;
   if ('moodOpen' in d) { hideEmotebar(); return showMood(); }
   if (d.moodPick) { $$('[data-mood-pick]').forEach(x => x.classList.toggle('on', x === t)); return; }

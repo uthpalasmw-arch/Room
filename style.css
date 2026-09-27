@@ -949,3 +949,32 @@ button.game:active { transform: scale(.98); }
 .dd-guesses span { background: var(--soft); border-radius: 99px; padding: 3px 10px; font-size: 13px; }
 .dd-guesses span.close { background: #ffe5a3; font-weight: 600; }
 .k-swing .hang > div { position: absolute; display: block; }
+.board { touch-action: none; user-select: none; -webkit-user-select: none; }
+.sq.hover { box-shadow: inset 0 0 0 4px #7b5cff; }
+.pc.lifted { opacity: .25; }
+.chess-ghost { position: fixed; z-index: 500; transform: translate(-50%, -60%) scale(1.35); pointer-events: none; filter: drop-shadow(0 6px 6px rgba(0,0,0,.35)); }
+.chess-ghost .pc { font-size: 44px; }
+
+/* ═════ Round 5: floating chat bubble, TV seek bar ═════ */
+#chatbub { position: fixed; z-index: 300; width: 56px; height: 56px; border-radius: 50%; background: var(--c, #7b5cff); display: grid; place-items: center;
+  font-size: 32px; box-shadow: 0 4px 0 rgba(0,0,0,.18), 0 8px 24px rgba(0,0,0,.3), 0 0 0 3px #fff; touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
+#chatbub::after { content: '💬'; position: absolute; right: -4px; bottom: -4px; font-size: 18px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.3)); }
+#chatbub.online::before { content: ''; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #2ecc71; box-shadow: 0 0 0 2px #fff; }
+#chatbub .badge { top: -4px; right: -4px; }
+#chatbub:active { transform: scale(.94); }
+#minichat { position: fixed; z-index: 299; background: #fff; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,.35); overflow: hidden; animation: pop .2s; }
+.mini-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 4px 10px; }
+.mini-head b { flex: 1; font-size: 15px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-head .pface { width: 30px; height: 30px; font-size: 18px; }
+.mini-btn { width: 30px; height: 30px; border-radius: 50%; background: var(--soft); font-size: 14px; flex: none; }
+.mini-list { display: flex; flex-direction: column; gap: 4px; padding: 4px 12px; min-height: 40px; }
+.mini-list .msg { max-width: 86%; font-size: 14px; }
+.msg .who { display: block; font-size: 10px; font-weight: 600; opacity: .7; }
+#minichat .typing { height: 14px; font-size: 11px; padding: 0 14px; }
+#minichat .chat-form { padding: 4px 8px 8px; }
+#minichat .send { width: 40px; height: 40px; }
+#tvctl { flex-direction: column; align-items: stretch; }
+.tv-seekrow { display: flex; align-items: center; gap: 8px; font-size: 12px; font-variant-numeric: tabular-nums; padding: 0 4px; }
+.tv-seek { flex: 1; height: 28px; accent-color: #ff4d6d; cursor: pointer; }
+.tv-btnrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.board .sq { width: 100%; height: 100%; }

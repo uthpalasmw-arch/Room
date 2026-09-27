@@ -1,6 +1,6 @@
 // Voice calls: WebRTC audio, phone-to-phone. The room database is used
 // only to exchange the connection details ("signaling").
-import { CONFIG } from './config.js?v=6';
+import { CONFIG } from './config.js?v=7';
 
 export function createCall(store, me, other, ui) {
   const iceServers = [
