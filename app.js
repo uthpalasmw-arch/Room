@@ -7,19 +7,23 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
 const hash = s => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7);
 const JUMBO = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|‍|️|\s){1,12}$/u;
 const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 const HOUR = 3600000;
+// Room coordinates: x is in "room units" (100 = one screen-width of room), y is % of room height.
+const ux = x => `calc(${x} * var(--u))`;
+const UPCT = 0.5625; // 1 room unit expressed as % of room height
 
 // ── Rooms ────────────────────────────────────────────────────
 const ROOMS = {
-  living: { name: 'Living room', icon: '🛋️', rest: 'sofa' },
-  bedroom: { name: 'Bedroom', icon: '🛏️', rest: 'bed' },
+  living: { name: 'Living room', icon: '🛋️', rest: 'sofa', w: 2 },
+  bedroom: { name: 'Bedroom', icon: '🛏️', rest: 'bed', w: 1 },
 };
 const NEXT_ROOM = { living: 'bedroom', bedroom: 'living' };
-const DOOR_SPOT = { living: { x: 84, y: 62 }, bedroom: { x: 16, y: 62 } };
+const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 } };
 const DEFAULT_LOOK = {
   living: { wall: '#ffd6e0', wp: 'dots', floor: '#e9b872', fl: 'wood', rug: '#ff8fab', cur: '#ff5fa2' },
   bedroom: { wall: '#e4c1f9', wp: 'stars', floor: '#bdb2ff', fl: 'carpet', rug: '#ffffff', cur: '#7b5cff' },
@@ -32,30 +36,40 @@ const SEED = {
     'seed-clock': { t: 'furn', k: 'clock', x: 22, y: 43, c: '#ff5fa2' },
     'seed-lamp': { t: 'furn', k: 'floorlamp', x: 9, y: 86, c: '#ffb703' },
     'seed-arcade': { t: 'furn', k: 'arcade', x: 89, y: 82, c: '#5a3fd6' },
-    'seed-sofa': { t: 'furn', k: 'sofa', x: 50, y: 95, c: '#ff5fa2' },
+    'seed-sofa': { t: 'furn', k: 'sofa', x: 55, y: 92, c: '#ff5fa2', face: 'back' },
   },
   bedroom: {
     'seed-fairy': { t: 'furn', k: 'fairy', x: 56, y: 38, s: .85 },
     'seed-wardrobe': { t: 'furn', k: 'wardrobe', x: 86, y: 66, c: '#c8875a' },
     'seed-night': { t: 'furn', k: 'nightstand', x: 14, y: 80, c: '#c8875a' },
     'seed-bed': { t: 'furn', k: 'bed', x: 50, y: 92, c: '#7b5cff' },
-    'seed-teddy': { t: 'emoji', v: '🧸', x: 36, y: 84, z: 960 },
+    'seed-teddy': { t: 'emoji', v: '🧸', x: 50, y: 90, z: 960 },
     'seed-bean': { t: 'furn', k: 'beanbag', x: 84, y: 76, c: '#ff5fa2' },
+  },
+};
+// Added when the living room grew to two screens wide.
+const SEED2 = {
+  living: {
+    'seed2-fish': { t: 'furn', k: 'fishtank', x: 128, y: 66, c: '#6d6875' },
+    'seed2-plant': { t: 'emoji', v: '🪴', x: 168, y: 64 },
+    'seed2-bean': { t: 'furn', k: 'beanbag', x: 104, y: 93, c: '#c77dff' },
+    'seed2-dtable': { t: 'furn', k: 'dtable', x: 142, y: 86, c: '#c8875a' },
+    'seed2-chair1': { t: 'furn', k: 'chair', x: 124, y: 87, c: '#ff5fa2', face: 'right' },
+    'seed2-chair2': { t: 'furn', k: 'chair', x: 160, y: 87, c: '#4f8cff', face: 'left' },
   },
 };
 
 // ── Palettes & content ───────────────────────────────────────
+const PALETTE = ['#ffffff', '#f4f1fb', '#ffd6e0', '#ffadad', '#ff99c8', '#ff5fa2', '#ff4d6d', '#e63946', '#ffc8a2', '#ff7a59', '#ff9f1c', '#ffb703',
+  '#fff1a8', '#ffd60a', '#d0f4de', '#b5e48c', '#8ac926', '#06d6a0', '#2ec4b6', '#b8f2e6', '#a9def9', '#90dbf4', '#4f8cff', '#1d4ed8',
+  '#e4c1f9', '#cdb4db', '#c77dff', '#7b5cff', '#5a3fd6', '#f4e1c1', '#e9b872', '#c8875a', '#8d5a3b', '#5a3b25', '#9b9b9b', '#6d6875', '#2b2d42', '#111111'];
+const VIVID = ['#ff5fa2', '#ff4d6d', '#e63946', '#ff7a59', '#ff9f1c', '#ffb703', '#ffd60a', '#8ac926', '#06d6a0', '#2ec4b6', '#4f8cff', '#1d4ed8', '#7b5cff', '#5a3fd6', '#c77dff', '#8d5a3b', '#6d6875', '#2b2d42'];
+const NOTE_COLORS = ['#fff59d', '#ffe082', '#ffccbc', '#ffcdd2', '#f8bbd0', '#e1bee7', '#d1c4e9', '#bbdefb', '#b3e5fc', '#b2ebf2', '#c8e6c9', '#dcedc8', '#ffffff'];
 const FACES = ['🐻', '🐰', '🐱', '🐶', '🦊', '🐼', '🐸', '🐯', '🐨', '🐷', '🐧', '🦄', '🐵', '🐙', '🐥', '🐹', '👩', '👨', '👧', '👦'];
 const HATS = ['', '👑', '🎀', '🧢', '🎩', '🌸', '🕶️', '🎧', '😇'];
 const HAT_CLASS = { '🕶️': 'h-eyes', '🌸': 'h-side', '🎧': 'h-ears' };
-const COLORS = ['#ff5fa2', '#ff7a59', '#ffb703', '#8ac926', '#2ec4b6', '#4f8cff', '#7b5cff', '#c77dff', '#ff4d6d', '#06d6a0'];
-const WALL_COLORS = ['#ffd6e0', '#ffc8a2', '#fff1a8', '#d0f4de', '#a9def9', '#e4c1f9', '#ff99c8', '#b8f2e6', '#cdb4db', '#90dbf4', '#ffadad', '#2b2d42', '#ffffff'];
 const WALLPAPERS = [['none', 'Plain'], ['dots', 'Dots'], ['stripes', 'Stripes'], ['hearts', 'Hearts'], ['stars', 'Stars'], ['checks', 'Checks'], ['waves', 'Waves'], ['bricks', 'Bricks']];
-const FLOOR_COLORS = ['#e9b872', '#c8875a', '#8d5a3b', '#f4e1c1', '#b5e48c', '#a0c4ff', '#ffc6ff', '#bdb2ff', '#9b9b9b', '#6d6875'];
 const FLOORS = [['wood', 'Wood'], ['tiles', 'Tiles'], ['carpet', 'Carpet'], ['grass', 'Grass']];
-const RUGS = ['#ff8fab', '#ffb703', '#8ac926', '#4f8cff', '#c77dff', '#ffffff', 'none'];
-const CURTAINS = ['#ff5fa2', '#7b5cff', '#4f8cff', '#8ac926', '#ffb703', '#ffffff', 'none'];
-const FURN_COLORS = ['#ff5fa2', '#7b5cff', '#4f8cff', '#2ec4b6', '#8ac926', '#ffb703', '#ff7a59', '#c8875a', '#8d5a3b', '#6d6875', '#ffffff'];
 const FRAMES = ['wood', 'gold', 'pink', 'white', 'polaroid', 'none'];
 const FRAME_NAMES = { wood: 'Wood', gold: 'Gold', pink: 'Pink', white: 'White', polaroid: 'Polaroid', none: 'No frame' };
 const STICKER_SETS = {
@@ -67,10 +81,12 @@ const STICKER_SETS = {
 };
 const FURN = {
   sofa: { label: 'Sofa', icon: '🛋️', c: '#ff5fa2', html: '<div class="back"></div><div class="arm l"></div><div class="arm r"></div><div class="seat"></div>' },
+  chair: { label: 'Chair', icon: '🪑', c: '#ff5fa2', html: '<div class="cback"></div><div class="cseat"></div>' },
   bed: { label: 'Bed', icon: '🛏️', c: '#7b5cff', html: '<div class="head"></div><div class="mat"></div><div class="pillow p1"></div><div class="pillow p2"></div><div class="blanket"></div>' },
   tv: { label: 'TV', icon: '📺', c: '#8d5a3b', tap: true, html: '<div class="tv"><div class="scr"><span></span></div></div><div class="neck"></div><div class="stand"></div>' },
   shelf: { label: 'Bookshelf', icon: '📚', c: '#c8875a', html: '<i></i><i></i><i></i>' },
-  table: { label: 'Table', icon: '🪑', c: '#c8875a', html: '<div class="top"></div>' },
+  table: { label: 'Coffee table', icon: '☕', c: '#c8875a', html: '<div class="top"></div>' },
+  dtable: { label: 'Dining table', icon: '🍽️', c: '#c8875a', html: '<div class="top"></div><div class="cloth"></div>' },
   nightstand: { label: 'Nightstand', icon: '🗄️', c: '#c8875a', html: '<div class="lshade"></div><div class="lbase"></div><div class="body"></div><div class="drawer"></div>' },
   wardrobe: { label: 'Wardrobe', icon: '🚪', c: '#c8875a', html: '<div class="crown"></div><div class="body"></div><div class="kn l"></div><div class="kn r"></div><div class="feet"></div>' },
   fishtank: { label: 'Fish tank', icon: '🐠', c: '#6d6875', html: '<div class="glass"><span>🐠</span><span>🐟</span></div><div class="cab"></div>' },
@@ -79,10 +95,18 @@ const FURN = {
   clock: { label: 'Clock', icon: '🕰️', c: '#ff5fa2', html: '<div class="face"></div><div class="hand hh"></div><div class="hand mh"></div><div class="pin"></div>' },
   fairy: { label: 'Fairy lights', icon: '✨', c: '#ffb703', html: '<div class="wire"></div>' + Array.from({ length: 11 }, (_, i) => {
     const x = 3 + i * 9, y = 2.2 + Math.sin(i / 10 * Math.PI) * 4, col = ['#ff4d6d', '#ffd60a', '#4f8cff', '#8ac926', '#c77dff'][i % 5];
-    return `<i style="left:calc(${x}% - 1.2cqw);top:${y}cqw;background:${col};color:${col};animation-delay:${(i % 3) * .5}s"></i>`;
+    return `<i style="left:calc(${x}% - 1.2 * var(--u));top:${ux(y)};background:${col};color:${col};animation-delay:${(i % 3) * .5}s"></i>`;
   }).join('') },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
+// Where characters sit or lie on furniture: [dx, height above the item's bottom, pose] in room units
+const SEATS = {
+  sofa: { front: [[-8, 6, 'sit'], [8, 6, 'sit']], back: [[-8, 11.5, 'back'], [8, 11.5, 'back']], left: [[-6, 6, 'sit'], [4, 6, 'sit']], right: [[6, 6, 'sit'], [-4, 6, 'sit']] },
+  chair: { front: [[0, 7, 'sit']], back: [[0, 9, 'back']], left: [[-1, 7, 'sit']], right: [[1, 7, 'sit']] },
+  bed: { front: [[-10, 13, 'lie'], [10, 13, 'lie']] },
+  beanbag: { front: [[0, 5, 'sit']] },
+};
+const TURNABLE = { sofa: ['front', 'back', 'left', 'right'], chair: ['front', 'back', 'left', 'right'] };
 const TV_CHANNELS = ['', '🐠', '💕', '⚽', ''];
 const THEMES = [
   ['🍑', 'Cozy', '#ffc8a2', { wall: '#ffc8a2', wp: 'stripes', floor: '#c8875a', fl: 'wood', rug: '#ff8fab', cur: '#ff5fa2' }],
@@ -94,12 +118,12 @@ const THEMES = [
   ['🧱', 'Loft', '#ffadad', { wall: '#ffadad', wp: 'bricks', floor: '#8d5a3b', fl: 'wood', rug: '#6d6875', cur: 'none' }],
 ];
 const EMOTES = ['❤️', '😂', '😘', '🥺', '😡', '😴', '🎉', '👋'];
-const INK = ['#ffffff', '#2a2140', '#ff4d6d', '#ff9f1c', '#ffd60a', '#8ac926', '#4f8cff', '#7b5cff', '#ff5fa2'];
 const BRUSHES = [5, 11, 22];
 const ERASER_R = { 5: 18, 11: 30, 22: 50 };
-const NOTE_COLORS = ['#fff59d', '#ffccbc', '#c8e6c9', '#b3e5fc', '#e1bee7', '#ffcdd2'];
 const QUICK = ['❤️', '😂', '😘', '🥰', '😭', '👍', '🔥', '🤗', '🙈', '😴'];
+const NICK_IDEAS = ['Honey Bun 🍯', 'Cutie Pie 🥧', 'Sweetie 🍬', 'Baby 🍼', 'Sunshine ☀️', 'Teddy 🧸', 'Pumpkin 🎃', 'Mr. Grumpy 😤', 'Sleepyhead 😴', 'My Love ❤️'];
 const MAX_PHOTOS = 15;
+const POWER_MS = 20000, SPAWN_MS = 25000;
 const GAMES = [
   ['🍕', 'Last Slice', 'Reflex duel — grab the pizza first. Fair even with lag!'],
   ['🎨', 'Doodle Duel', 'One draws, the other guesses. Best with a call on.'],
@@ -108,14 +132,14 @@ const GAMES = [
   ['🧦', 'Sock Hunt', 'Hide your socks, find theirs. Turn by turn.'],
 ];
 const TIPS = [
-  ['👣', 'Tap the floor to walk around'],
+  ['👆', 'Swipe to look around the room, pinch (or ＋/－) to zoom'],
+  ['👣', 'Tap the floor to walk, tap the sofa or bed to sit or lie down'],
   ['🚪', 'Tap the door to go to the other room'],
-  ['😘', 'Tap yourself to react, tap your partner to poke them'],
-  ['🏏', 'Walk up to your partner and bonk them with the bat!'],
-  ['🎨', 'Decorate: furniture, photos, paint — drag anything anywhere'],
+  ['😘', 'Tap your partner to react, poke, bonk 🏏 or give a nickname 🏷️'],
+  ['⚡', 'Grab the ⚡ when it appears for a SUPER KICK!'],
+  ['🎨', 'Decorate: furniture, photos, colors — drag anything anywhere'],
   ['✏️', 'Draw on the wall. Their drawings are protected for 1 hour 🔒'],
-  ['📌', 'Pin notes on the board in the living room'],
-  ['📺', 'Tap the TV to change the channel, the lamp for lights'],
+  ['📺', 'Tap the TV to change channel, the lamp for lights'],
 ];
 
 const DEFAULT_PROFILES = {
@@ -124,31 +148,37 @@ const DEFAULT_PROFILES = {
 };
 const HOME = { a: { x: 38, y: 76 }, b: { x: 62, y: 78 } };
 const ONLINE_WINDOW = 45000;
-const BONK_RANGE = 26;
+const REACH = 26;
 
 // ── State ────────────────────────────────────────────────────
-const S = { look: {}, profiles: {}, presence: {}, avatars: {}, items: {}, strokes: {}, notes: {}, msgs: [], typing: {} };
+const S = { look: {}, profiles: {}, nicks: {}, presence: {}, avatars: {}, items: {}, strokes: {}, notes: {}, msgs: [], typing: {}, power: null };
 let store, roomId, me, other, call, view = 'living';
 let panel = null, overlayMode = null, spaceUnsubs = [];
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let presenceInit = false, chatInit = false, lastChatTs = 0;
+let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
-const lastEmote = {}, lastBonk = {}, lastLogged = {}, prevRoom = {};
+const lastEmote = {}, lastBonk = {}, lastKick = {}, lastLogged = {}, prevRoom = {};
 const photoCache = new Map();
+const cam = { z: 1, tx: 0, ty: 0, W: 1, H: 1 };
 
 const sp = () => `spaces/${view}`;
+const roomW = () => (ROOMS[view].w || 1) * 100;
 const prof = id => ({ ...DEFAULT_PROFILES[id], ...(S.profiles?.[id] || {}) });
+const nick = id => S.nicks?.[id] || '';
+const called = id => nick(id) || prof(id).name;
 const joined = id => !!S.profiles?.[id];
 const isOnline = id => { const p = S.presence[id]; return !!p && p.online && store.now() - p.ts < ONLINE_WINDOW; };
-const roomOf = id => S.avatars[id]?.rm || 'living';
+const roomOf = id => (ROOMS[S.avatars[id]?.rm] ? S.avatars[id].rm : 'living');
 const together = () => isOnline(other) && roomOf(other) === view;
 const readKey = kind => `ourroom:read:${kind}:${roomId}:${me}`;
 const inviteLink = () => `${location.origin}${location.pathname}?room=${roomId}`;
 const look = () => ({ ...DEFAULT_LOOK[view], ...S.look });
 const canErase = o => !o.by || o.by === me || store.now() - (o.ts || 0) >= HOUR;
 const minsLeft = o => Math.max(1, Math.ceil((HOUR - (store.now() - (o.ts || 0))) / 60000));
+const powered = id => { const p = S.power; return !!p && p.state === 'held' && p.by === id && store.now() < p.until; };
+const itemZ = it => it.z ?? Math.round(it.y * 10);
 
 function ago(ts) {
   if (!ts) return 'a while ago';
@@ -176,7 +206,13 @@ function toast(html, ms = 3800) {
   setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, ms);
 }
 function protectedToast(o, what) {
-  toast(`🔒 ${esc(prof(o.by).name)}’s ${what} is protected for <b>${minsLeft(o)} more min</b>`);
+  toast(`🔒 ${esc(called(o.by))}’s ${what} is protected for <b>${minsLeft(o)} more min</b>`);
+}
+function swatches(list, cur, attr, { none = false, any = true, small = false } = {}) {
+  const all = none ? [...list, 'none'] : list;
+  const btns = all.map(c => `<button class="sw ${small ? 'small' : ''} ${c === cur ? 'on' : ''} ${c === 'none' ? 'none' : ''}" style="background:${c}" ${attr}="${c}" aria-label="${c}"></button>`).join('');
+  const custom = any ? `<label class="sw any ${small ? 'small' : ''}" title="Any color"><input type="color" value="${/^#[0-9a-f]{6}$/i.test(cur || '') ? cur : '#ff5fa2'}" data-custom="${attr}"></label>` : '';
+  return `<div class="swatches">${btns}${custom}</div>`;
 }
 
 // ── Boot ─────────────────────────────────────────────────────
@@ -249,20 +285,20 @@ function showWelcome() {
 function profileForm(id) {
   const p = prof(id);
   return `<label class="lbl">Your name</label>
-    <input class="field" id="pf-name" maxlength="20" value="${esc(S.profiles?.[id]?.name || '')}" placeholder="Your name or nickname">
+    <input class="field" id="pf-name" maxlength="20" value="${esc(S.profiles?.[id]?.name || '')}" placeholder="Your name">
     <label class="lbl">Pick your look</label>
     <div class="faces">${FACES.map(f => `<button class="face-opt ${f === p.face ? 'on' : ''}" data-pick="${f}">${f}</button>`).join('')}</div>
     <label class="lbl">Hat or accessory</label>
     <div class="faces">${HATS.map(h => `<button class="face-opt hat-opt ${h === (p.hat || '') ? 'on' : ''}" data-pick-hat="${h}">${h || '🚫'}</button>`).join('')}</div>
     <label class="lbl">Your color</label>
-    <div class="swatches">${COLORS.map(c => `<button class="sw ${c === p.color ? 'on' : ''}" style="background:${c}" data-pick-color="${c}"></button>`).join('')}</div>`;
+    ${swatches(VIVID.includes(p.color) ? VIVID : [p.color, ...VIVID], p.color, 'data-pick-color')}`;
 }
 function readProfileForm(root, id) {
   return {
     name: ($('#pf-name', root).value.trim() || prof(id).name).slice(0, 20),
     face: $('.face-opt.on[data-pick]', root)?.dataset.pick || prof(id).face,
     hat: $('.hat-opt.on', root)?.dataset.pickHat ?? '',
-    color: $('.sw.on', root)?.dataset.pickColor || prof(id).color,
+    color: $('.sw.on[data-pick-color]', root)?.dataset.pickColor || prof(id).color,
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
 }
@@ -278,6 +314,18 @@ function showDoor() {
   showCard(`<div class="door-big">🚪</div><h2>Hi ${esc(p.name)}! ${esc(p.face)}</h2>
     <p class="muted">Your room is waiting.</p>
     <button class="btn wide" style="margin-top:14px" data-enter>Knock knock… come in!</button>`, 'door');
+}
+
+function showNickCard() {
+  const p = prof(other);
+  showCard(`<div class="big">🏷️</div><h2>Nickname for ${esc(p.name)}</h2>
+    <p class="muted">It shows above their head — on both phones.</p>
+    <input class="field" id="nick-input" maxlength="24" value="${esc(nick(other))}" placeholder="e.g. Honey Bun 🍯" style="margin-top:10px">
+    <div class="nick-sugg">${NICK_IDEAS.map(n => `<button class="chip" data-nick-idea="${esc(n)}">${esc(n)}</button>`).join('')}</div>
+    <div class="row" style="justify-content:center;margin-top:10px">
+      ${nick(other) ? '<button class="btn ghost" data-nick-clear>Remove</button>' : ''}
+      <button class="btn" data-nick-save>Save 💕</button>
+    </div>`, 'nick');
 }
 
 // ── Entering ─────────────────────────────────────────────────
@@ -297,18 +345,29 @@ async function enterRoom() {
 
   store.on('presence', onPresence);
   store.on('avatars', onAvatars);
+  store.on('nicks', v => { S.nicks = v || {}; renderPresence(); renderAvatars(); });
+  store.on('power', v => { S.power = v; renderPower(); });
   store.on('notes', v => { S.notes = v || {}; renderBoard(); if (panel === 'notes') { renderNotes(); markRead('notes'); } updateBadges(); });
   store.on('chat', onChat, { last: 150 });
   store.on('log', onLog, { last: 40 });
   store.on('typing', v => { S.typing = v || {}; renderTyping(); });
+
+  setupCamera();
+  setupStage();
+  setupWallDrawing();
   await openSpace(view);
 
   call = createCall(store, me, other, callUI);
-  setupStage();
-  setupWallDrawing();
   renderWindow();
   setInterval(() => { renderPresence(); renderAvatars(); renderWindow(); tickClocks(); }, 15000);
+  setInterval(tickPower, 500);
+  setInterval(spawnTick, 5000);
   setTimeout(() => showAwaySummary(prevSeen), 900);
+  if (!lsGet('ourroom:panhint')) {
+    lsSet('ourroom:panhint', '1');
+    const h = document.createElement('div'); h.className = 'pan-hint'; h.textContent = '👆 Swipe to look around · pinch to zoom';
+    $('#stage').append(h); setTimeout(() => h.remove(), 4200);
+  }
 }
 
 async function openSpace(rid) {
@@ -319,31 +378,41 @@ async function openSpace(rid) {
   $('#items').innerHTML = '';
   $('#stage').classList.remove('rm-living', 'rm-bedroom');
   $('#stage').classList.add('rm-' + rid);
-  const nxt = NEXT_ROOM[rid];
-  $('.door-sign').textContent = `${ROOMS[nxt].icon} ${ROOMS[nxt].name}`;
-  if (!(await store.once(`${sp()}/seeded`))) {
-    const upd = { seeded: true };
-    for (const [k, v] of Object.entries(SEED[rid])) upd[`items/${k}`] = { s: 1, ...v, ts: 0 };
-    store.update(sp(), upd);
+  $('.door-sign').textContent = `${ROOMS[NEXT_ROOM[rid]].icon} ${ROOMS[NEXT_ROOM[rid]].name}`;
+
+  // First visit furnishes the room; later versions add new furniture once.
+  const [seeded, seedv, sofa] = await Promise.all([store.once(`${sp()}/seeded`), store.once(`${sp()}/seedv`), store.once(`${sp()}/items/seed-sofa`)]);
+  const upd = {};
+  if (!seeded) { upd.seeded = true; for (const [k, v] of Object.entries(SEED[rid])) upd[`items/${k}`] = { s: 1, ...v, ts: 0 }; }
+  if ((seedv || 0) < 2) {
+    upd.seedv = 2;
+    for (const [k, v] of Object.entries(SEED2[rid] || {})) upd[`items/${k}`] = { s: 1, ...v, ts: 0 };
+    if (seeded && sofa && sofa.x === 50 && sofa.y === 95) Object.assign(upd, { 'items/seed-sofa/face': 'back', 'items/seed-sofa/x': 55, 'items/seed-sofa/y': 92 });
   }
+  if (Object.keys(upd).length) store.update(sp(), upd);
+
   spaceUnsubs = [
     store.on(`${sp()}/look`, v => { S.look = v || {}; renderLook(); }),
     store.on(`${sp()}/items`, v => { S.items = v || {}; renderItems(); renderAvatars(); }),
     store.on(`${sp()}/strokes`, v => { S.strokes = v || {}; if (!erasing) drawWall(); }),
   ];
-  renderLook(); renderAvatars(); renderPresence(); renderBoard();
+  cam.z = 1;
+  layoutWorld();
+  const mine = S.avatars[me];
+  centerOn(mine?.rm === rid && mine.x != null ? mine.x : roomW() / 2 - 20);
+  renderLook(); renderAvatars(); renderPresence(); renderBoard(); renderPower();
 }
 
 async function goThroughDoor() {
   const next = NEXT_ROOM[view];
   const door = $('#door');
   door.classList.add('open'); sfx.knock();
-  store.update(`avatars/${me}`, { x: DOOR_SPOT[view].x, y: DOOR_SPOT[view].y });
+  store.update(`avatars/${me}`, { x: DOOR_SPOT[view].x, y: DOOR_SPOT[view].y, seat: null });
   await new Promise(r => setTimeout(r, 700));
   $('#stage').classList.add('switching');
   await new Promise(r => setTimeout(r, 350));
-  if (panel && panel !== 'chat' && panel !== 'notes' && panel !== 'games') closePanel();
-  store.update(`avatars/${me}`, { rm: next, x: DOOR_SPOT[next].x, y: DOOR_SPOT[next].y + 6 });
+  if (panel && !['chat', 'notes', 'games'].includes(panel)) closePanel();
+  store.update(`avatars/${me}`, { rm: next, x: DOOR_SPOT[next].x, y: DOOR_SPOT[next].y + 6, seat: null });
   $$('.avatar').forEach(a => a.remove());
   await openSpace(next);
   door.classList.remove('open');
@@ -358,14 +427,13 @@ async function showAwaySummary(prevSeen) {
   const acts = [...new Set(since(log).map(e => e.text))].slice(-8);
   const nMsg = since(chat).length, nNotes = since(notes).length;
   if (!acts.length && !nMsg && !nNotes) return;
-  const p = prof(other);
   const lines = [
     ...acts.map(a => `<li>${esc(a)}</li>`),
     nMsg ? `<li>💬 sent you ${nMsg} message${nMsg > 1 ? 's' : ''}</li>` : '',
     nNotes ? `<li>📌 left ${nNotes} note${nNotes > 1 ? 's' : ''} on the board</li>` : '',
   ].join('');
-  showCard(`<div class="big bounce">${esc(p.face)}</div><h2>While you were away…</h2>
-    <p class="muted"><b>${esc(p.name)}</b> dropped by:</p><ul class="list">${lines}</ul>
+  showCard(`<div class="big bounce">${esc(prof(other).face)}</div><h2>While you were away…</h2>
+    <p class="muted"><b>${esc(called(other))}</b> dropped by:</p><ul class="list">${lines}</ul>
     <div class="row" style="justify-content:center">${nMsg ? '<button class="btn" data-open="chat">Read messages</button>' : ''}
     ${nNotes && !nMsg ? '<button class="btn" data-open="notes">See notes</button>' : ''}
     <button class="btn ghost" data-dismiss>Yay 💕</button></div>`, 'summary');
@@ -380,13 +448,94 @@ function showTips(first = false) {
     <button class="btn wide" style="margin-top:14px" data-dismiss>Let’s go!</button>`, 'tips');
 }
 
+// ── Camera: pan + zoom ───────────────────────────────────────
+const U = () => cam.H * cam.z * 0.005625;
+const zMin = () => clamp(cam.W / (roomW() * 0.005625 * cam.H), 0.45, 1);
+function layoutWorld() {
+  const st = $('#stage');
+  cam.W = st.clientWidth || 1; cam.H = st.clientHeight || 1;
+  cam.z = clamp(cam.z, zMin(), 2.6);
+  const w = $('#world'), u = U();
+  w.style.height = cam.H * cam.z + 'px';
+  w.style.width = roomW() * u + 'px';
+  w.style.setProperty('--u', u + 'px');
+  clampCam(); applyCam();
+}
+function clampCam() {
+  const wW = roomW() * U(), wH = cam.H * cam.z;
+  cam.tx = wW <= cam.W ? (cam.W - wW) / 2 : clamp(cam.tx, cam.W - wW, 0);
+  cam.ty = wH <= cam.H ? (cam.H - wH) / 2 : clamp(cam.ty, cam.H - wH, 0);
+}
+function applyCam() { $('#world').style.transform = `translate(${cam.tx}px, ${cam.ty}px)`; }
+function zoomAt(nz, fx = cam.W / 2, fy = cam.H / 2) {
+  nz = clamp(nz, zMin(), 2.6);
+  const k = nz / cam.z;
+  cam.tx = fx - (fx - cam.tx) * k; cam.ty = fy - (fy - cam.ty) * k; cam.z = nz;
+  layoutWorld();
+  positionItembar(); if (emoteTarget) positionEmotebar();
+}
+function centerOn(x, y = 72) {
+  cam.tx = cam.W / 2 - x * U(); cam.ty = cam.H / 2 - y / 100 * cam.H * cam.z;
+  clampCam(); applyCam();
+}
+function worldPt(e) {
+  const r = $('#world').getBoundingClientRect();
+  return { x: (e.clientX - r.left) / U(), y: (e.clientY - r.top) / r.height * 100 };
+}
+function setupCamera() {
+  const st = $('#stage');
+  new ResizeObserver(() => layoutWorld()).observe(st);
+  const ptrs = new Map();
+  let g = null;
+  st.addEventListener('pointerdown', e => {
+    if (e.target.closest('.zoombar, .popbar')) return;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const r = st.getBoundingClientRect();
+    if (ptrs.size === 1) g = { type: 'maybe', sx: e.clientX, sy: e.clientY, tx: cam.tx, ty: cam.ty };
+    if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      g = { type: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y) || 1, z: cam.z, tx: cam.tx, ty: cam.ty,
+        fx: (a.x + b.x) / 2 - r.left, fy: (a.y + b.y) / 2 - r.top };
+      st._panned = true;
+    }
+  });
+  st.addEventListener('pointermove', e => {
+    if (!ptrs.has(e.pointerId) || !g) return;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (g.type === 'maybe' && Math.hypot(e.clientX - g.sx, e.clientY - g.sy) > 9) { g.type = 'pan'; st._panned = true; hideEmotebar(); }
+    if (g.type === 'pan') {
+      cam.tx = g.tx + e.clientX - g.sx; cam.ty = g.ty + e.clientY - g.sy;
+      clampCam(); applyCam(); positionItembar();
+    }
+    if (g.type === 'pinch' && ptrs.size >= 2) {
+      const [a, b] = [...ptrs.values()], r = st.getBoundingClientRect();
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      const mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+      cam.z = g.z; cam.tx = g.tx + (mx - g.fx); cam.ty = g.ty + (my - g.fy);
+      zoomAt(g.z * d / g.d, mx, my);
+    }
+  });
+  const up = e => {
+    ptrs.delete(e.pointerId);
+    if (!ptrs.size) { g = null; setTimeout(() => { st._panned = false; }, 0); }
+    else if (g?.type === 'pinch') g = null;
+  };
+  st.addEventListener('pointerup', up);
+  st.addEventListener('pointercancel', up);
+  st.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = st.getBoundingClientRect();
+    zoomAt(cam.z * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+}
+
 // ── Presence ─────────────────────────────────────────────────
 function onPresence(v) {
   const was = presenceInit && isOnline(other);
   S.presence = v || {};
   const now = isOnline(other);
-  if (presenceInit && now && !was) { toast(`${esc(prof(other).face)} <b>${esc(prof(other).name)}</b> came home! (${esc(ROOMS[roomOf(other)].name)})`); sfx.knock(); }
-  if (presenceInit && was && !now) toast(`${esc(prof(other).name)} left 👋`);
+  if (presenceInit && now && !was) { toast(`${esc(prof(other).face)} <b>${esc(called(other))}</b> came home! (${esc(ROOMS[roomOf(other)].name)})`); sfx.knock(); }
+  if (presenceInit && was && !now) toast(`${esc(called(other))} left 👋`);
   presenceInit = true;
   renderPresence(); renderAvatars();
   if (panel === 'games') renderGamesPanel();
@@ -395,11 +544,12 @@ function onPresence(v) {
 function renderPresence() {
   if (!other) return;
   const mp = prof(me), op = prof(other), on = isOnline(other), rm = ROOMS[roomOf(other)];
-  $('#pill-me').innerHTML = `<span class="pface" style="--c:${esc(mp.color)}">${esc(mp.face)}</span><span class="pinfo"><b>${esc(mp.name)}</b><small>${ROOMS[view].icon} ${ROOMS[view].name}</small></span>`;
+  const myNick = nick(me);
+  $('#pill-me').innerHTML = `<span class="pface" style="--c:${esc(mp.color)}">${esc(mp.face)}</span><span class="pinfo"><b>${esc(myNick || mp.name)}</b><small>${ROOMS[view].icon} ${ROOMS[view].name}</small></span>`;
   const status = !joined(other) ? 'Hasn’t joined yet — send the link!'
     : on ? `<i class="dot on"></i>${roomOf(other) === view ? 'Here with you' : `In the ${rm.name.toLowerCase()} ${rm.icon}`}` : `<i class="dot"></i>Away · ${ago(S.presence[other]?.ts)}`;
   const tz = op.tz ? ` · 🕒 ${esc(localTime(op.tz))}` : '';
-  $('#pill-other').innerHTML = `<span class="pface" style="--c:${esc(op.color)}">${esc(op.face)}</span><span class="pinfo"><b>${esc(joined(other) ? op.name : 'Your partner')}</b><small>${status}${joined(other) ? tz : ''}</small></span>`;
+  $('#pill-other').innerHTML = `<span class="pface" style="--c:${esc(op.color)}">${esc(op.face)}</span><span class="pinfo"><b>${esc(joined(other) ? called(other) : 'Your partner')}</b><small>${status}${joined(other) ? tz : ''}</small></span>`;
   $$('.k-arcade').forEach(a => a.closest('.item')?.classList.toggle('ready', on));
 }
 
@@ -436,20 +586,41 @@ function onAvatars(v) {
   S.avatars = v || {};
   const r = roomOf(other);
   if (prevRoom[other] !== undefined && prevRoom[other] !== r && r === view && isOnline(other)) {
-    toast(`${esc(prof(other).face)} <b>${esc(prof(other).name)}</b> came into the ${esc(ROOMS[view].name.toLowerCase())}`);
+    toast(`${esc(prof(other).face)} <b>${esc(called(other))}</b> came into the ${esc(ROOMS[view].name.toLowerCase())}`);
     sfx.knock();
   }
   prevRoom[other] = r;
   renderAvatars();
 }
 
-function restSpot(id) {
+function seatPos(itemId, idx) {
+  const it = S.items[itemId];
+  const set = it && SEATS[it.k];
+  if (!set) return null;
+  const s = (set[it.face || 'front'] || set.front)[idx];
+  if (!s) return null;
+  const sc = it.s || 1, flip = it.fl ? -1 : 1, [dx, up, pose] = s;
+  return {
+    x: it.x + dx * sc * flip, y: it.y - up * sc * UPCT, pose,
+    z: pose === 'back' ? itemZ(it) - 1 : itemZ(it) + (pose === 'lie' ? 60 : 1),
+    left: it.face === 'left' ? true : it.face === 'right' ? false : null,
+    blanket: it.k === 'bed' ? (it.c || FURN.bed.c) : null,
+  };
+}
+function freeSeat(itemId, preferred = 0) {
+  const it = S.items[itemId], set = it && SEATS[it.k];
+  if (!set) return -1;
+  const n = (set[it.face || 'front'] || set.front).length;
+  const taken = new Set(['a', 'b'].filter(id => id !== me && roomOf(id) === view && S.avatars[id]?.seat?.id === itemId).map(id => S.avatars[id].seat.i));
+  for (let k = 0; k < n; k++) { const i = (preferred + k) % n; if (!taken.has(i)) return i; }
+  return -1;
+}
+function restSeat(id) {
   const kind = ROOMS[view].rest;
-  const it = Object.values(S.items).find(i => i.t === 'furn' && i.k === kind);
-  if (!it) return { x: id === 'a' ? 30 : 70, y: 70, z: 0 };
-  const s = it.s || 1, dx = (kind === 'bed' ? 10 : 9) * s * (id === 'a' ? -1 : 1);
-  const dy = (kind === 'bed' ? 9 : 4.5) * s;
-  return { x: it.x + dx, y: it.y - dy, z: (it.z ?? Math.round(it.y * 10)) + 1 };
+  const found = Object.entries(S.items).find(([, i]) => i.t === 'furn' && i.k === kind);
+  if (!found) return null;
+  const seats = (SEATS[kind][found[1].face || 'front'] || SEATS[kind].front);
+  return seatPos(found[0], (id === 'a' ? 0 : 1) % seats.length);
 }
 
 function renderAvatars() {
@@ -463,32 +634,38 @@ function renderAvatars() {
     if (!el) {
       el = document.createElement('div');
       el.className = 'avatar'; el.dataset.id = id;
-      el.innerHTML = '<div class="bubble"></div><div class="body"><span class="face"></span><span class="hat"></span><span class="zzz">💤</span></div><div class="tag"></div>';
+      el.innerHTML = '<div class="bubble"></div><div class="body"><span class="face"></span><span class="hat"></span><span class="zzz">💤</span><span class="blanket"></span></div><div class="tag"><b></b><small></small></div>';
       layer.append(el);
     }
     const online = id === me || isOnline(id);
     const a = S.avatars[id];
-    const rest = online ? null : restSpot(id);
-    const pos = rest || (a?.x != null ? a : HOME[id]);
-    const px = parseFloat(el.style.left), py = parseFloat(el.style.top);
-    if (!isNaN(px) && (Math.abs(px - pos.x) > .5 || Math.abs(py - pos.y) > .5)) {
-      if (pos.x < px - .5) el.classList.add('left'); else if (pos.x > px + .5) el.classList.remove('left');
-      el.classList.add('walking');
-      clearTimeout(el._wt); el._wt = setTimeout(() => el.classList.remove('walking'), 900);
+    const seat = online ? (a?.seat && seatPos(a.seat.id, a.seat.i)) : restSeat(id);
+    const pos = seat || (a?.x != null ? a : HOME[id]);
+    if (!el._anim) {
+      if (el._x != null && (Math.abs(el._x - pos.x) > .5 || Math.abs(el._y - pos.y) > .5)) {
+        if (seat?.left == null) { if (pos.x < el._x - .5) el.classList.add('left'); else if (pos.x > el._x + .5) el.classList.remove('left'); }
+        el.classList.add('walking');
+        clearTimeout(el._wt); el._wt = setTimeout(() => el.classList.remove('walking'), 900);
+      }
+      if (seat?.left != null) el.classList.toggle('left', seat.left);
+      el._x = pos.x; el._y = pos.y;
+      el.style.left = ux(pos.x);
+      el.style.top = pos.y + '%';
+      el.style.zIndex = seat ? seat.z : Math.round(pos.y * 10) + 1;
     }
-    el.style.left = pos.x + '%';
-    el.style.top = pos.y + '%';
-    el.style.zIndex = rest ? rest.z : Math.round(pos.y * 10) + 1;
+    ['sit', 'back', 'lie'].forEach(c => el.classList.toggle(c, seat?.pose === c));
+    if (seat?.blanket) el.style.setProperty('--blanket', seat.blanket);
     el.style.setProperty('--c', p.color);
     if (!el._bonked) $('.face', el).textContent = p.face;
     const hat = $('.hat', el);
     hat.textContent = p.hat || '';
     hat.className = 'hat ' + (HAT_CLASS[p.hat] || '');
-    $('.tag', el).textContent = p.name;
+    $('.tag b', el).textContent = called(id);
+    $('.tag small', el).textContent = nick(id) ? p.name : '';
     el.classList.toggle('away', !online);
     el.classList.toggle('me', id === me);
+    el.classList.toggle('powered', online && powered(id));
 
-    // reactions
     const em = a?.emote;
     if (em && em.ts !== lastEmote[id]) {
       const fresh = lastEmote[id] !== undefined || store.now() - em.ts < 5000;
@@ -499,79 +676,149 @@ function renderAvatars() {
       }
     } else if (!em && lastEmote[id] === undefined) lastEmote[id] = 0;
 
-    // bonks
     const bk = a?.bonk;
     if (bk && bk.ts !== lastBonk[id]) {
       const fresh = lastBonk[id] !== undefined || store.now() - bk.ts < 4000;
       lastBonk[id] = bk.ts;
-      if (fresh && store.now() - bk.ts < 6000) playBonk(id, bk.to, bk.hit);
+      if (fresh && store.now() - bk.ts < 6000) setTimeout(() => playBonk(id, bk.to, bk.hit), 0);
     } else if (!bk && lastBonk[id] === undefined) lastBonk[id] = 0;
+
+    const kk = a?.kick;
+    if (kk && kk.ts !== lastKick[id]) {
+      const fresh = lastKick[id] !== undefined || store.now() - kk.ts < 4000;
+      lastKick[id] = kk.ts;
+      if (fresh && store.now() - kk.ts < 6000) setTimeout(() => playKick(id, kk), 0);
+    } else if (!kk && lastKick[id] === undefined) lastKick[id] = 0;
   }
   if (!$('#emotebar').hidden && emoteTarget) positionEmotebar();
 }
 
-function spawnFx(text, x, y, cls = 'float', extra = {}) {
+function spawnFx(text, x, y, up, cls = 'float', extra = {}) {
   const f = document.createElement('div');
   f.className = cls; f.textContent = text;
-  f.style.left = x; f.style.top = y;
+  f.style.left = ux(x); f.style.top = `calc(${y}% - ${up} * var(--u))`;
   for (const [k, v] of Object.entries(extra)) f.style.setProperty(k, v);
   $('#fx').append(f);
-  setTimeout(() => f.remove(), 2600);
+  setTimeout(() => f.remove(), 3200);
   return f;
 }
+const avatarEl = id => $(`.avatar[data-id="${id}"]`);
 
 function showEmote(id, e) {
-  const av = $(`.avatar[data-id="${id}"]`); if (!av) return;
+  const av = avatarEl(id); if (!av) return;
   const n = e === '❤️' || e === '🎉' ? 5 : 1;
   for (let i = 0; i < n; i++) {
-    const f = spawnFx(e, `calc(${av.style.left} + ${(Math.random() - .5) * 8}cqw)`, `calc(${av.style.top} - 22cqw)`, 'float', { '--dx': `${(Math.random() - .5) * 16}cqw` });
+    const f = spawnFx(e, av._x + (Math.random() - .5) * 8, av._y, 22, 'float', { '--dx': `calc(${(Math.random() - .5) * 16} * var(--u))` });
     f.style.animationDelay = `${i * 0.12}s`;
   }
   if (e === '👋' || e === '😡') { av.classList.remove('shake'); void av.offsetWidth; av.classList.add('shake'); }
 }
 
+function dizzy(id, ms = 1300, birds = false) {
+  const el = avatarEl(id); if (!el) return;
+  const face = $('.face', el);
+  el._bonked = true; face.textContent = '😵';
+  for (let i = 0; i < 3; i++) spawnFx('⭐', el._x, el._y, 17, 'star', { '--a': `${i * 120}deg` });
+  if (birds) for (let i = 0; i < 2; i++) spawnFx('🐦', el._x, el._y, 19, 'bird', { '--a': `${60 + i * 180}deg` });
+  clearTimeout(el._dz);
+  el._dz = setTimeout(() => { el._bonked = false; face.textContent = prof(id).face; }, ms);
+}
+
 // 🏏 BONK
 function playBonk(from, to, hit) {
-  const target = $(`.avatar[data-id="${to}"]`), attacker = $(`.avatar[data-id="${from}"]`);
+  const target = avatarEl(to), attacker = avatarEl(from);
   if (!target) return;
-  const tx = parseFloat(target.style.left), ty = parseFloat(target.style.top);
-  const fromLeft = attacker ? parseFloat(attacker.style.left) < tx : true;
-  const bat = spawnFx('🏏', `${tx + (fromLeft ? -9 : 9)}%`, `calc(${ty}% - 24cqw)`, 'bat' + (fromLeft ? '' : ' flip'));
+  const tx = target._x, ty = target._y;
+  const fromLeft = attacker ? attacker._x < tx : true;
+  const bat = spawnFx('🏏', tx + (fromLeft ? -9 : 9), ty, 24, 'bat' + (fromLeft ? '' : ' flip'));
   bat.addEventListener('animationend', () => bat.remove());
   setTimeout(() => {
     if (hit) {
       sfx.bonk();
       if (to === me) navigator.vibrate?.(180);
-      const face = $('.face', target);
-      target._bonked = true;
-      face.textContent = '😵';
       target.classList.remove('bonked'); void target.offsetWidth; target.classList.add('bonked');
-      spawnFx('BONK!', `${clamp(tx, 22, 78)}%`, `calc(${ty}% - 26cqw)`, 'bonk-word');
-      for (let i = 0; i < 3; i++) spawnFx('⭐', `${tx}%`, `calc(${ty}% - 17cqw)`, 'star', { '--a': `${i * 120}deg` });
-      setTimeout(() => { target._bonked = false; face.textContent = prof(to).face; target.classList.remove('bonked'); }, 1300);
+      spawnFx('BONK!', clamp(tx, 22, roomW() - 22), ty, 26, 'bonk-word');
+      dizzy(to);
+      setTimeout(() => target.classList.remove('bonked'), 1300);
     } else {
       sfx.whiff();
       target.classList.remove('dodge'); void target.offsetWidth; target.classList.add('dodge');
-      spawnFx('MISS!', `${clamp(tx, 18, 82)}%`, `calc(${ty}% - 26cqw)`, 'bonk-word miss');
+      spawnFx('MISS!', clamp(tx, 18, roomW() - 18), ty, 26, 'bonk-word miss');
       setTimeout(() => target.classList.remove('dodge'), 600);
     }
   }, 280);
 }
 
+// 🦶 SUPER KICK → fly into the wall → slide down → dizzy
+function playKick(from, k) {
+  const target = avatarEl(k.to), attacker = avatarEl(from);
+  if (!target || target._anim) return;
+  if (attacker && attacker !== target) {
+    attacker.animate([{ translate: '0 0' }, { translate: `${(target._x - attacker._x) * 0.35 * U()}px 0` }, { translate: '0 0' }], { duration: 350, easing: 'ease-out' });
+    spawnFx('🦶', (attacker._x + target._x) / 2, target._y, 10, 'float');
+  }
+  sfx.kick();
+  spawnFx('POW!', clamp(target._x, 20, roomW() - 20), target._y, 24, 'bonk-word kick-word');
+  const u = U(), H = $('#world').clientHeight, x0 = target._x, y0 = target._y;
+  const dx1 = (k.wx - x0) * u, dy1 = (k.wy - y0) / 100 * H, dx2 = (k.land.x - x0) * u, dy2 = (k.land.y - y0) / 100 * H;
+  target._anim = true; target._bonked = true;
+  $('.face', target).textContent = '😵';
+  target.style.zIndex = 4500;
+  target.classList.add('bonked');
+  const anim = target.animate([
+    { translate: '0px 0px', rotate: '0deg', scale: '1' },
+    { translate: `${dx1 * .5}px ${Math.min(dy1, 0) - 18 * u}px`, rotate: '360deg', scale: '1.15', offset: .2 },
+    { translate: `${dx1}px ${dy1}px`, rotate: '720deg', scale: '1', offset: .36 },
+    { translate: `${dx1}px ${dy1}px`, rotate: '720deg', scale: '1.4 .45', offset: .44 },
+    { translate: `${dx1}px ${dy1}px`, rotate: '720deg', scale: '1.2 .75', offset: .56 },
+    { translate: `${dx2}px ${dy2}px`, rotate: '716deg', scale: '1', offset: .86 },
+    { translate: `${dx2}px ${dy2}px`, rotate: '720deg', scale: '1' },
+  ], { duration: 2000, easing: 'ease-in-out' });
+  setTimeout(() => {
+    sfx.splat();
+    if (k.to === me) navigator.vibrate?.([250, 60, 120]);
+    const wall = $('#wall'); wall.classList.remove('shake'); void wall.offsetWidth; wall.classList.add('shake');
+    const c = document.createElement('div'); c.className = 'crack'; c.textContent = '💥';
+    c.style.left = ux(k.wx); c.style.top = `calc(${k.wy}% - 8 * var(--u))`;
+    $('#fx').append(c); setTimeout(() => c.remove(), 2300);
+    spawnFx('SPLAT!', clamp(k.wx, 20, roomW() - 20), k.wy, 22, 'bonk-word');
+  }, 720);
+  anim.onfinish = () => {
+    anim.cancel();
+    target._anim = false;
+    target._x = k.land.x; target._y = k.land.y;
+    target.style.left = ux(k.land.x); target.style.top = k.land.y + '%';
+    target.style.zIndex = Math.round(k.land.y * 10) + 1;
+    target.classList.remove('bonked');
+    dizzy(k.to, 2600, true);
+    if (k.to === me) store.update(`avatars/${me}`, { x: k.land.x, y: k.land.y, seat: null });
+  };
+}
+
+function approach(target) {
+  const mine = S.avatars[me] || HOME[me], theirs = avatarEl(target);
+  if (!theirs) return false;
+  const dist = Math.hypot(mine.x - theirs._x, (mine.y - theirs._y) * 1.2);
+  if (dist <= REACH && !S.avatars[me]?.seat) return true;
+  const side = mine.x < theirs._x ? -1 : 1;
+  store.update(`avatars/${me}`, { x: +clamp(theirs._x + side * 14, 8, roomW() - 8).toFixed(1), y: +clamp(theirs._y, 60, 97).toFixed(1), seat: null });
+  return false;
+}
 function tryBonk(target) {
   hideEmotebar();
-  const mine = S.avatars[me] || HOME[me], theirs = S.avatars[target];
-  if (!theirs) return;
-  const dist = Math.hypot(mine.x - theirs.x, (mine.y - theirs.y) * 1.2);
-  if (dist > BONK_RANGE) {
-    // sneak up next to them first
-    const side = mine.x < theirs.x ? -1 : 1;
-    store.update(`avatars/${me}`, { x: +clamp(theirs.x + side * 14, 8, 92).toFixed(1), y: theirs.y });
-    toast('🏏 Sneaking up… tap them again to bonk!', 2500);
-    return;
-  }
-  const hit = Math.random() < 0.75;
-  store.update(`avatars/${me}`, { bonk: { to: target, hit, ts: store.now() } });
+  if (!approach(target)) return toast('🏏 Sneaking up… tap them again to bonk!', 2500);
+  store.update(`avatars/${me}`, { bonk: { to: target, hit: Math.random() < 0.75, ts: store.now() } });
+}
+function tryKick(target) {
+  hideEmotebar();
+  if (!powered(me)) return toast('⚡ Your super power ran out!');
+  if (Date.now() - lastKickAt < 2200) return;
+  if (!approach(target)) return toast('🦶 Getting close… tap them again to KICK!', 2500);
+  lastKickAt = Date.now();
+  const t = avatarEl(target), mine = S.avatars[me];
+  const dir = t._x >= mine.x ? 1 : -1;
+  const wx = +clamp(t._x + dir * 24, 10, roomW() - 10).toFixed(1);
+  store.update(`avatars/${me}`, { kick: { to: target, ts: store.now(), wx, wy: 42, land: { x: wx, y: 64 } } });
 }
 
 function showBubble(id, text, ms = 5000) {
@@ -588,39 +835,91 @@ function sendEmote(e) {
 function openEmotebar(target) {
   emoteTarget = target;
   const bar = $('#emotebar');
-  const extra = target === me ? '' : `<button data-bonk="${target}" aria-label="Bonk">🏏</button>`;
+  const extra = target === me ? '' :
+    (powered(me) ? `<button data-kick="${target}" aria-label="Super kick" style="font-size:calc(7 * var(--u))">🦶</button>` : '') +
+    `<button data-bonk="${target}" aria-label="Bonk">🏏</button><button data-nick-open aria-label="Nickname">🏷️</button>`;
   bar.innerHTML = extra + EMOTES.map(e => `<button data-emote="${e}">${e}</button>`).join('');
   bar.hidden = false;
   positionEmotebar();
 }
 function positionEmotebar() {
-  const av = $(`.avatar[data-id="${emoteTarget}"]`), bar = $('#emotebar');
+  const av = avatarEl(emoteTarget), bar = $('#emotebar');
   if (!av) return hideEmotebar();
-  bar.style.left = clamp(parseFloat(av.style.left), 44, 56) + '%';
-  bar.style.top = `calc(${av.style.top} - 22cqw)`;
+  const half = bar.offsetWidth / 2 / U() + 2;
+  bar.style.left = ux(clamp(av._x, half, roomW() - half));
+  bar.style.top = `calc(${av._y}% - 22 * var(--u))`;
 }
 function hideEmotebar() { $('#emotebar').hidden = true; emoteTarget = null; }
 
-// ── Stage interactions ───────────────────────────────────────
-function stagePct(e) {
-  const r = $('#stage').getBoundingClientRect();
-  return { x: (e.clientX - r.left) / r.width * 100, y: (e.clientY - r.top) / r.height * 100 };
+// ── ⚡ Power-ups ─────────────────────────────────────────────
+function renderPower() {
+  const p = S.power, now = store.now();
+  $('.powerup')?.remove();
+  if (p?.state === 'spawn' && p.rm === view && now - p.ts < SPAWN_MS) {
+    const el = document.createElement('div');
+    el.className = 'powerup'; el.textContent = '⚡';
+    el.style.left = ux(p.x); el.style.top = p.y + '%';
+    $('#fx').append(el);
+  }
+  const key = p ? `${p.state}:${p.ts}:${p.by || ''}` : '';
+  if (key !== powerKey && powerKey !== '' || (key && powerKey === '' && p && now - p.ts < 3000)) {
+    if (p?.state === 'spawn' && p.rm === view) { toast('⚡ A power-up appeared! Grab it first!', 3000); sfx.power(); }
+    if (p?.state === 'held' && p.by === me && now < p.until) { toast(`⚡ <b>SUPER KICK</b> for ${Math.round(POWER_MS / 1000)}s! ${p.gift ? '(a gift from the universe 🌠) ' : ''}Tap ${esc(called(other))} to kick!`, 4500); sfx.power(); }
+    if (p?.state === 'held' && p.by === other && now < p.until) toast(`⚠️ ${esc(called(other))} has <b>SUPER KICK</b>! Run! 🏃`, 4000);
+  }
+  powerKey = key;
+  tickPower();
+  renderAvatars();
+}
+function tickPower() {
+  const t = $('#power-timer');
+  const p = S.power;
+  if (powered(me)) { t.hidden = false; t.textContent = `⚡ SUPER KICK · ${Math.ceil((p.until - store.now()) / 1000)}s`; }
+  else if (!t.hidden) { t.hidden = true; renderAvatars(); }
+  if (p?.state === 'spawn' && store.now() - p.ts >= SPAWN_MS && $('.powerup')) $('.powerup').remove();
+  $$('.avatar').forEach(el => el.classList.toggle('powered', powered(el.dataset.id) && (el.dataset.id === me || isOnline(el.dataset.id))));
+}
+async function grabPower() {
+  const p = S.power;
+  if (!p || p.state !== 'spawn') return;
+  store.update(`avatars/${me}`, { x: p.x, y: clamp(p.y + 2, 60, 97), seat: null });
+  const ok = await store.transact('power', cur =>
+    cur && cur.state === 'spawn' && store.now() - cur.ts < SPAWN_MS ? { state: 'held', by: me, until: store.now() + POWER_MS, ts: store.now() } : undefined);
+  if (!ok) toast('Too slow! 😜');
+}
+// Only player 1's phone decides when power-ups appear (so they never double up).
+let nextSpawn = 0;
+function spawnTick() {
+  if (me !== 'a' || !together()) return;
+  const p = S.power, now = store.now();
+  const active = p && ((p.state === 'spawn' && now - p.ts < SPAWN_MS) || (p.state === 'held' && now < p.until));
+  if (active) return;
+  if (p) store.remove('power');
+  if (!nextSpawn) nextSpawn = now + rand(40, 100) * 1000;
+  if (now < nextSpawn) return;
+  nextSpawn = now + rand(70, 180) * 1000;
+  if (Math.random() < 0.3) store.set('power', { state: 'held', by: Math.random() < .5 ? 'a' : 'b', until: now + POWER_MS, ts: now, gift: true });
+  else store.set('power', { state: 'spawn', rm: view, x: +rand(12, roomW() - 12).toFixed(1), y: +rand(66, 92).toFixed(1), ts: now });
 }
 
+// ── Stage interactions ───────────────────────────────────────
 function setupStage() {
   const stage = $('#stage');
   stage.addEventListener('click', e => {
-    if (e.target.closest('.popbar')) return;
+    if (stage._panned) { stage._panned = false; return; }
+    if (e.target.closest('.popbar, .zoombar')) return;
     const hadEmote = !$('#emotebar').hidden;
     const prevTarget = emoteTarget;
     hideEmotebar();
     if (panel === 'draw') return;
     if (panel === 'decorate') { if (!e.target.closest('.item')) selectItem(null); return; }
+    if (e.target.closest('.powerup')) return grabPower();
 
     const av = e.target.closest('.avatar');
     if (av) {
       const id = av.dataset.id;
-      if (id !== me && !isOnline(id)) return toast(`${esc(prof(id).name)} is napping 💤 Leave a note 📌 or a message 💬!`);
+      if (id !== me && !isOnline(id)) return toast(`${esc(called(id))} is napping 💤 Leave a note 📌 or a message 💬!`);
+      if (id !== me && powered(me) && !(hadEmote && prevTarget === id)) return tryKick(id);
       return hadEmote && prevTarget === id ? null : openEmotebar(id);
     }
     const itemEl = e.target.closest('.item');
@@ -629,36 +928,36 @@ function setupStage() {
     if (e.target.closest('#door')) return goThroughDoor();
     if (e.target.closest('#lamp')) return toggleLights();
     if (hadEmote) return;
-    const p = stagePct(e);
+    const p = worldPt(e);
     if (p.y < 50) return;
     sfx.swish();
-    store.update(`avatars/${me}`, { x: +clamp(p.x, 8, 92).toFixed(1), y: +clamp(p.y + 4, 60, 97).toFixed(1) });
+    store.update(`avatars/${me}`, { x: +clamp(p.x, 6, roomW() - 6).toFixed(1), y: +clamp(p.y + 4, 60, 97).toFixed(1), seat: null });
   });
 
-  // Drag items while decorating
+  // Drag items while decorating (stops the camera from panning)
   const layer = $('#items');
   layer.addEventListener('pointerdown', e => {
     const el = e.target.closest('.item');
     if (!el || panel !== 'decorate') return;
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     const id = el.dataset.id, it = S.items[id]; if (!it) return;
     selectItem(id);
-    const p = stagePct(e);
+    const p = worldPt(e);
     drag = { id, el, dx: p.x - it.x, dy: p.y - it.y, x: it.x, y: it.y, moved: false };
     el.setPointerCapture(e.pointerId);
   });
   layer.addEventListener('pointermove', e => {
     if (!drag) return;
-    const p = stagePct(e);
-    drag.x = clamp(p.x - drag.dx, 2, 98); drag.y = clamp(p.y - drag.dy, 4, 99); drag.moved = true;
-    Object.assign(drag.el.style, { left: drag.x + '%', top: drag.y + '%' });
+    const p = worldPt(e);
+    drag.x = clamp(p.x - drag.dx, 2, roomW() - 2); drag.y = clamp(p.y - drag.dy, 4, 99); drag.moved = true;
+    drag.el.style.left = ux(drag.x); drag.el.style.top = drag.y + '%';
     if (S.items[drag.id]?.z == null) drag.el.style.zIndex = Math.round(drag.y * 10);
     positionItembar();
   });
   const end = () => {
     if (!drag) return;
     const d = drag; drag = null;
-    if (d.moved) store.update(`${sp()}/items/${d.id}`, { x: +d.x.toFixed(2), y: +d.y.toFixed(2) });
+    if (d.moved) { $('#stage')._panned = true; store.update(`${sp()}/items/${d.id}`, { x: +d.x.toFixed(2), y: +d.y.toFixed(2) }); }
   };
   layer.addEventListener('pointerup', end);
   layer.addEventListener('pointercancel', end);
@@ -667,9 +966,21 @@ function setupStage() {
 function tapItem(id) {
   const it = S.items[id]; if (!it) return;
   if (it.t === 'photo') return showPhoto(it);
+  if (SEATS[it.k]) {
+    const mine = S.avatars[me]?.seat;
+    if (mine?.id === id) {   // already sitting here → stand up in front of it
+      store.update(`avatars/${me}`, { seat: null, x: it.x, y: clamp(it.y + 4, 60, 97) });
+      return;
+    }
+    const i = freeSeat(id, me === 'a' ? 0 : 1);
+    if (i < 0) return toast('No room left there! 🙈');
+    const pos = seatPos(id, i);
+    store.update(`avatars/${me}`, { seat: { id, i }, x: pos.x, y: pos.y });
+    sfx.pop();
+    return;
+  }
   if (it.k === 'tv') {
-    const ch = ((it.ch ?? 0) + 1) % TV_CHANNELS.length;
-    store.update(`${sp()}/items/${id}`, { ch }); sfx.pop();
+    store.update(`${sp()}/items/${id}`, { ch: ((it.ch ?? 0) + 1) % TV_CHANNELS.length }); sfx.pop();
     return;
   }
   if (it.k === 'arcade') return openPanel('games');
@@ -694,13 +1005,14 @@ function renderItems() {
       layer.append(el);
     }
     const tappable = it.t === 'photo' || (it.t === 'furn' && FURN[it.k]?.tap);
-    el.className = ['item', it.t, tappable ? 'tap' : '', id === selectedItem ? 'sel' : '', el._new ? 'new' : ''].join(' ');
+    el.className = ['item', it.t, tappable ? 'tap' : '', SEATS[it.k] ? 'sitable' : '', id === selectedItem ? 'sel' : '', el._new ? 'new' : ''].join(' ');
     el.style.setProperty('--s', it.s || 1);
     el.style.setProperty('--fx', it.fl ? -1 : 1);
     if (it.t === 'emoji' || it.t === 'text') el.textContent = it.v;
     if (it.t === 'text') el.style.color = it.c || '#fff';
     if (it.t === 'furn') {
       el.style.setProperty('--c', it.c || FURN[it.k]?.c);
+      $('.furn', el).className = `furn k-${it.k} f-${it.face || 'front'}`;
       if (it.k === 'tv') {
         const ch = it.ch ?? 0;
         $('.tv', el).className = 'tv ch' + ch;
@@ -719,8 +1031,8 @@ function renderItems() {
       });
     }
     if (drag?.id !== id) {
-      el.style.left = it.x + '%'; el.style.top = it.y + '%';
-      el.style.zIndex = it.z ?? Math.round(it.y * 10);
+      el.style.left = ux(it.x); el.style.top = it.y + '%';
+      el.style.zIndex = itemZ(it);
     }
   }
   $$('.item', layer).forEach(el => { if (!seen.has(el.dataset.id)) el.remove(); });
@@ -728,6 +1040,7 @@ function renderItems() {
   tickClocks();
   renderPresence();
   positionItembar();
+  if (panel === 'decorate') renderSelStrip();
 }
 
 function tickClocks() {
@@ -748,7 +1061,7 @@ async function showPhoto(it) {
   const src = await loadPhoto(it.pid);
   if (!src) return;
   showCard(`<img src="${esc(src)}" alt="">${it.cap ? `<div class="cap">${esc(it.cap)}</div>` : ''}
-    <p class="muted">Hung by ${esc(prof(it.by).name)} · ${ago(it.ts)}</p>
+    <p class="muted">Hung by ${esc(called(it.by))} · ${ago(it.ts)}</p>
     <button class="btn ghost wide small" data-dismiss style="margin-top:6px">Close</button>`, 'photo', 'photo-view');
 }
 
@@ -756,18 +1069,21 @@ function selectItem(id) {
   selectedItem = id;
   $$('#items .item').forEach(el => el.classList.toggle('sel', el.dataset.id === id));
   positionItembar();
+  if (panel === 'decorate') renderSelStrip();
 }
 function positionItembar() {
   const bar = $('#itembar');
   const el = selectedItem && $(`#items [data-id="${selectedItem}"]`);
   const it = selectedItem && S.items[selectedItem];
   if (!el || !it || panel !== 'decorate') { bar.hidden = true; return; }
-  const sr = $('#stage').getBoundingClientRect(), r = el.getBoundingClientRect();
+  const wr = $('#world').getBoundingClientRect(), r = el.getBoundingClientRect();
   bar.hidden = false;
-  $('[data-item=style]', bar).hidden = it.t === 'emoji';
-  $('[data-item=flip]', bar).hidden = it.t === 'text' || it.t === 'photo';
-  bar.style.left = clamp((r.left + r.width / 2 - sr.left) / sr.width * 100, 30, 70) + '%';
-  bar.style.top = Math.max(9, (r.top - sr.top) / sr.height * 100 - 1) + '%';
+  $('[data-item=style]', bar).hidden = true;
+  $('[data-item=turn]', bar).hidden = !TURNABLE[it.k];
+  $('[data-item=flip]', bar).hidden = it.t === 'text' || it.t === 'photo' || !!TURNABLE[it.k];
+  const half = bar.offsetWidth / 2 + 4;
+  bar.style.left = clamp(r.left + r.width / 2 - wr.left, half, wr.width - half) + 'px';
+  bar.style.top = Math.max(bar.offsetHeight + 8, r.top - wr.top - 4) + 'px';
 }
 function itemAction(act) {
   const id = selectedItem, it = S.items[id]; if (!it) return;
@@ -787,12 +1103,9 @@ function itemAction(act) {
     return store.update(path, { z: top + 1 });
   }
   if (act === 'flip') return store.update(path, { fl: !it.fl });
-  if (act === 'style') {
-    const cycle = (list, cur) => list[(list.indexOf(cur) + 1) % list.length];
-    if (it.t === 'furn') store.update(path, { c: cycle(FURN_COLORS, it.c) });
-    if (it.t === 'photo') { const f = cycle(FRAMES, it.f || 'wood'); store.update(path, { f }); toast(`Frame: ${FRAME_NAMES[f]}`, 1200); }
-    if (it.t === 'text') store.update(path, { c: cycle(INK, it.c) });
-    return;
+  if (act === 'turn') {
+    const faces = TURNABLE[it.k]; if (!faces) return;
+    return store.update(path, { face: faces[(faces.indexOf(it.face || 'front') + 1) % faces.length] });
   }
   const s = clamp((it.s || 1) * (act === 'bigger' ? 1.15 : 1 / 1.15), .35, 3.5);
   store.update(path, { s: +s.toFixed(2) });
@@ -803,12 +1116,14 @@ function addItem(data, logKey, logText) {
   if (logKey) logAct(logKey, logText);
   return id;
 }
-const addSticker = v => addItem({ t: 'emoji', v, x: 30 + Math.random() * 40, y: 70 + Math.random() * 15 }, 'sticker:' + v, `added ${v} to the ${ROOMS[view].name.toLowerCase()}`);
-const addFurniture = k => addItem({ t: 'furn', k, c: FURN[k].c, x: 50, y: k === 'clock' || k === 'fairy' ? 30 : 78, ...(k === 'tv' ? { ch: 0 } : {}) },
+// New things appear in the middle of what you're looking at
+const viewCenterX = () => clamp((cam.W / 2 - cam.tx) / U(), 12, roomW() - 12);
+const addSticker = v => addItem({ t: 'emoji', v, x: viewCenterX() + rand(-12, 12), y: rand(70, 85) }, 'sticker:' + v, `added ${v} to the ${ROOMS[view].name.toLowerCase()}`);
+const addFurniture = k => addItem({ t: 'furn', k, c: FURN[k].c, x: viewCenterX(), y: k === 'clock' || k === 'fairy' ? 30 : 78, ...(k === 'tv' ? { ch: 0 } : {}) },
   'furn:' + k, `added a ${FURN[k].label.toLowerCase()} ${FURN[k].icon} to the ${ROOMS[view].name.toLowerCase()}`);
 function addText() {
   const inp = $('#text-input'); const v = inp?.value.trim(); if (!v) return inp?.focus();
-  addItem({ t: 'text', v: v.slice(0, 60), c: textInk, x: 50, y: 28 + Math.random() * 16 }, 'text', 'wrote something on the wall ✍️');
+  addItem({ t: 'text', v: v.slice(0, 60), c: textInk, x: viewCenterX(), y: rand(28, 44) }, 'text', 'wrote something on the wall ✍️');
   inp.value = '';
 }
 
@@ -824,7 +1139,7 @@ async function addPhoto(file) {
     photoCache.set(pid, d);
     const cap = ($('#photo-cap')?.value || '').trim().slice(0, 40);
     if ($('#photo-cap')) $('#photo-cap').value = '';
-    addItem({ t: 'photo', pid, f: photoFrame, cap, x: 30 + Math.random() * 40, y: 26 + Math.random() * 12 }, 'photo', `hung a photo in the ${ROOMS[view].name.toLowerCase()} 🖼️`);
+    addItem({ t: 'photo', pid, f: photoFrame, cap, x: viewCenterX() + rand(-10, 10), y: rand(24, 36) }, 'photo', `hung a photo in the ${ROOMS[view].name.toLowerCase()} 🖼️`);
   } catch (err) {
     console.error(err);
     toast('Couldn’t open that photo 😕 Try another one.');
@@ -845,22 +1160,28 @@ async function shrinkImage(file, max, quality) {
 }
 
 // ── Wall drawing + eraser ────────────────────────────────────
+// Stroke points are 0–1000 per screen-width of room (x) and 0–1000 of wall height (y).
 const parsePts = s => String(s.p || '').split(' ').filter(Boolean).map(p => p.split(',').map(Number));
 const sortStrokes = obj => Object.entries(obj).sort(([ka, a], [kb, b]) => (a.ts || 0) - (b.ts || 0) || (ka < kb ? -1 : 1));
 
 function setupWallDrawing() {
   const cv = $('#wall-canvas'), wall = $('#wall');
+  let raf = 0;
   new ResizeObserver(() => {
-    const dpr = Math.min(devicePixelRatio || 1, 2);
-    cv.width = Math.round(wall.clientWidth * dpr); cv.height = Math.round(wall.clientHeight * dpr);
-    drawWall();
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      const scale = Math.min(dpr, Math.sqrt(6e6 / Math.max(1, wall.clientWidth * wall.clientHeight)));
+      cv.width = Math.round(wall.clientWidth * scale); cv.height = Math.round(wall.clientHeight * scale);
+      drawWall();
+    });
   }).observe(wall);
 
   let cur = null, lastPt = null;
-  const pt = e => { const r = cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 1000), Math.round((e.clientY - r.top) / r.height * 1000)]; };
+  const pt = e => { const r = cv.getBoundingClientRect(); return [Math.round((e.clientX - r.left) / r.width * 10 * roomW()), Math.round((e.clientY - r.top) / r.height * 1000)]; };
   cv.addEventListener('pointerdown', e => {
     if (panel !== 'draw') return;
-    e.preventDefault(); cv.setPointerCapture(e.pointerId);
+    e.preventDefault(); e.stopPropagation(); cv.setPointerCapture(e.pointerId);
     const p = pt(e);
     if (tool === 'erase') { startErase(); eraseAt(p, e); lastPt = p; return; }
     cur = { c: ink, w: brush, pts: [p] };
@@ -894,12 +1215,12 @@ function setupWallDrawing() {
 }
 
 function paint(s, pts, ctx = $('#wall-canvas').getContext('2d')) {
-  const W = ctx.canvas.width, H = ctx.canvas.height;
+  const BW = ctx.canvas.width / (roomW() / 100), H = ctx.canvas.height;   // pixels per screen-width of room
   ctx.strokeStyle = ctx.fillStyle = s.c;
-  ctx.lineWidth = s.w / 1000 * W; ctx.lineCap = ctx.lineJoin = 'round';
-  if (pts.length === 1) { ctx.beginPath(); ctx.arc(pts[0][0] / 1000 * W, pts[0][1] / 1000 * H, ctx.lineWidth / 2, 0, 7); ctx.fill(); return; }
+  ctx.lineWidth = s.w / 1000 * BW; ctx.lineCap = ctx.lineJoin = 'round';
+  if (pts.length === 1) { ctx.beginPath(); ctx.arc(pts[0][0] / 1000 * BW, pts[0][1] / 1000 * H, ctx.lineWidth / 2, 0, 7); ctx.fill(); return; }
   ctx.beginPath();
-  pts.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, x / 1000 * W, y / 1000 * H));
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, x / 1000 * BW, y / 1000 * H));
   ctx.stroke();
 }
 function drawWall(src = S.strokes) {
@@ -946,7 +1267,6 @@ function eraseAt([x, y], e) {
     segs.forEach((pts, i) => { if (pts.length > 1 || s.w > 8) W[`${k}~${erasing.n++}_${i}`] = { ...s, pts }; });
     changed = true;
   }
-  // words written on the wall
   for (const el of $$('#items .item.text')) {
     const id = el.dataset.id, it = S.items[id];
     if (!it || erasing.texts.has(id)) continue;
@@ -985,7 +1305,7 @@ function clearWall() {
   const ok = all.filter(([, s]) => canErase(s));
   const locked = all.filter(([, s]) => !canErase(s));
   if (!ok.length) return protectedToast(locked[0][1], 'drawing');
-  const note = locked.length ? `\n\n🔒 ${prof(other).name}’s newest drawings are protected and will stay.` : '';
+  const note = locked.length ? `\n\n🔒 ${called(other)}’s newest drawings are protected and will stay.` : '';
   if (!confirm(`Clear the drawings from this wall?${note}`)) return;
   store.update(`${sp()}/strokes`, Object.fromEntries(ok.map(([k]) => [k, null])));
   logAct('wipe', `cleaned the ${ROOMS[view].name.toLowerCase()} wall 🧽`);
@@ -1041,7 +1361,7 @@ function renderChat(forceBottom) {
     lastDay = day;
     const jumbo = JUMBO.test(m.text) && [...m.text].length <= 8;
     return `${sep}<div class="msg ${m.by === me ? 'mine' : 'theirs'} ${jumbo ? 'jumbo' : ''}">${esc(m.text)}<time>${fmtTime(m.ts)}</time></div>`;
-  }).join('') : `<div class="empty">No messages yet.<br>Say hi to ${esc(prof(other).name)}! 👋</div>`;
+  }).join('') : `<div class="empty">No messages yet.<br>Say hi to ${esc(called(other))}! 👋</div>`;
   if (atBottom) list.scrollTop = list.scrollHeight;
 }
 function sendChat(text) {
@@ -1062,7 +1382,7 @@ function renderTyping() {
   const t = S.typing[other];
   const on = t && store.now() - t < 5000;
   const el = $('#typing');
-  if (el) el.textContent = on ? `${prof(other).name} is typing…` : '';
+  if (el) el.textContent = on ? `${called(other)} is typing…` : '';
   const b = $(`.avatar[data-id="${other}"] .bubble`);
   if (b && on && !b.classList.contains('show') && together()) {
     b.textContent = '• • •'; b.classList.add('show', 'typing');
@@ -1076,7 +1396,7 @@ function onLog(v) {
   for (const [k, e] of Object.entries(v || {})) {
     if (seenLog.has(k)) continue;
     seenLog.add(k);
-    if (logInit && e.by !== me) toast(`${esc(prof(e.by).face)} <b>${esc(prof(e.by).name)}</b> ${esc(e.text)}`);
+    if (logInit && e.by !== me) toast(`${esc(prof(e.by).face)} <b>${esc(called(e.by))}</b> ${esc(e.text)}`);
   }
   logInit = true;
 }
@@ -1105,7 +1425,7 @@ function closePanel() {
 }
 
 function renderChatPanel() {
-  $('#dock').innerHTML = head(`💬 ${esc(prof(other).name)}`, isOnline(other) ? 'Home right now' : 'They’ll see it when they drop by') +
+  $('#dock').innerHTML = head(`💬 ${esc(called(other))}`, isOnline(other) ? 'Home right now' : 'They’ll see it when they drop by') +
     `<div class="chat-list" id="chat-list"></div><div class="typing" id="typing"></div>
     <div class="quick">${QUICK.map(e => `<button data-quick="${e}">${e}</button>`).join('')}</div>
     <form class="chat-form" id="chat-form"><input class="field" id="chat-input" placeholder="Say something sweet…" autocomplete="off" maxlength="1000" enterkeyhint="send"><button class="send" aria-label="Send">➤</button></form>`;
@@ -1118,10 +1438,8 @@ function renderNotesPanel() {
   $('#dock').innerHTML = head('📌 Notes board', 'Pinned in the living room until someone removes them') +
     `<div class="panel-body">
       <textarea class="field" id="note-text" maxlength="200" placeholder="Leave a little note… 💌"></textarea>
-      <div class="row between" style="margin-top:10px">
-        <div class="swatches">${NOTE_COLORS.map(c => `<button class="sw small ${c === noteColor ? 'on' : ''}" style="background:${c}" data-note-color="${c}"></button>`).join('')}</div>
-        <button class="btn small" data-pin>Pin it 📌</button>
-      </div>
+      <div style="margin-top:10px">${swatches(NOTE_COLORS, noteColor, 'data-note-color', { small: true })}</div>
+      <button class="btn small" data-pin style="margin-top:10px">Pin it 📌</button>
       <div class="notes-grid" id="notes-grid"></div>
     </div>`;
   renderNotes(); markRead('notes');
@@ -1131,7 +1449,7 @@ function renderNotes() {
   const list = sortedNotes();
   g.innerHTML = list.length ? list.map(n => `<div class="note" style="--n:${esc(n.color)};--r:${(hash(n.k) % 5) - 2}deg">
       <button class="del" data-del-note="${esc(n.k)}" aria-label="Remove note">✕</button>
-      <p>${esc(n.text)}</p><small>${esc(prof(n.by).face)} ${esc(prof(n.by).name)} · ${ago(n.ts)}</small></div>`).join('')
+      <p>${esc(n.text)}</p><small>${esc(prof(n.by).face)} ${esc(called(n.by))} · ${ago(n.ts)}</small></div>`).join('')
     : '<div class="empty" style="grid-column:1/-1">The board is empty. Pin the first note!</div>';
 }
 function pinNote() {
@@ -1143,12 +1461,25 @@ function pinNote() {
 
 function renderDecoratePanel() {
   const tabs = [['furniture', '🛋️ Furniture'], ['photos', '🖼️ Photos'], ['stickers', '🧸 Stuff'], ['themes', '✨ Themes'], ['wall', '🧱 Wall'], ['floor', '🪵 Floor'], ['text', '🔤 Words']];
-  $('#dock').innerHTML = head(`🎨 Decorate the ${ROOMS[view].name.toLowerCase()}`, 'Drag things around · tap one for options') +
+  $('#dock').innerHTML = head(`🎨 Decorate the ${ROOMS[view].name.toLowerCase()}`, 'Drag things · tap one for options · swipe empty space to look around') +
     `<div class="tabs">${tabs.map(([k, l]) => `<button class="chip ${k === decoTab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+    <div class="sel-strip" id="sel-strip" hidden></div>
     <div class="panel-body" id="deco-body"></div>`;
+  renderSelStrip();
   renderDecoBody();
 }
-const swatches = (list, cur, key) => `<div class="swatches">${list.map(c => `<button class="sw ${c === cur ? 'on' : ''} ${c === 'none' ? 'none' : ''}" style="background:${c}" data-set="${key}" data-val="${c}" aria-label="${c}"></button>`).join('')}</div>`;
+function renderSelStrip() {
+  const box = $('#sel-strip'); if (!box) return;
+  const it = selectedItem && S.items[selectedItem];
+  if (!it || it.t === 'emoji') { box.hidden = true; return; }
+  box.hidden = false;
+  if (it.t === 'photo') {
+    box.innerHTML = `<h4>Frame</h4><div class="chips">${FRAMES.map(f => `<button class="chip ${f === (it.f || 'wood') ? 'on' : ''}" data-item-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div>`;
+  } else {
+    const label = it.t === 'text' ? 'Text color' : `${FURN[it.k]?.label || 'Item'} color`;
+    box.innerHTML = `<h4>${label}</h4>${swatches(PALETTE, it.c || FURN[it.k]?.c, 'data-item-color')}`;
+  }
+}
 const chips = (list, cur, key) => `<div class="chips">${list.map(([k, l]) => `<button class="chip ${k === cur ? 'on' : ''}" data-set="${key}" data-val="${k}">${l}</button>`).join('')}</div>`;
 function renderDecoBody() {
   const b = $('#deco-body'); if (!b) return;
@@ -1156,7 +1487,7 @@ function renderDecoBody() {
   const nPhotos = Object.values(S.items).filter(i => i.t === 'photo').length;
   const html = {
     furniture: `<div class="furn-grid">${Object.entries(FURN).map(([k, f]) => `<button data-furn="${k}"><span>${f.icon}</span>${f.label}</button>`).join('')}</div>
-      <p class="hint">Tip: tap a piece in the room, then 🎨 to change its color.</p>`,
+      <p class="hint">Tip: tap a piece in the room to change its color, turn it 🔄, resize or remove it.</p>`,
     photos: `<div class="photo-pick"><div class="big">🖼️</div>
         <input class="field" id="photo-cap" maxlength="40" placeholder="Caption (optional)" style="margin:8px 0">
         <h4 style="margin-top:6px">Frame</h4>
@@ -1167,23 +1498,27 @@ function renderDecoBody() {
       <div class="stickers">${STICKER_SETS[stickerSet].map(s => `<button data-sticker="${s}">${s}</button>`).join('')}</div>`,
     themes: `<div class="themes">${THEMES.map(([i, n, bg], idx) => `<button style="background:${bg};color:${bg === '#2b2d42' ? '#fff' : 'inherit'}" data-theme="${idx}"><span>${i}</span>${n}</button>`).join('')}</div>
       <p class="hint">A theme repaints the walls, floor, rug and curtains of this room.</p>`,
-    wall: `<h4>Paint</h4>${swatches(WALL_COLORS, r.wall, 'wall')}<h4>Wallpaper</h4>${chips(WALLPAPERS, r.wp, 'wp')}<h4>Curtains</h4>${swatches(CURTAINS, r.cur, 'cur')}`,
-    floor: `<h4>Floor</h4>${chips(FLOORS, r.fl, 'fl')}<h4>Floor color</h4>${swatches(FLOOR_COLORS, r.floor, 'floor')}<h4>Rug</h4>${swatches(RUGS, r.rug, 'rug')}`,
+    wall: `<h4>Paint</h4>${swatches(PALETTE, r.wall, 'data-look-wall')}<h4>Wallpaper</h4>${chips(WALLPAPERS, r.wp, 'wp')}<h4>Curtains</h4>${swatches(PALETTE, r.cur, 'data-look-cur', { none: true })}`,
+    floor: `<h4>Floor</h4>${chips(FLOORS, r.fl, 'fl')}<h4>Floor color</h4>${swatches(PALETTE, r.floor, 'data-look-floor')}<h4>Rug</h4>${swatches(PALETTE, r.rug, 'data-look-rug', { none: true })}`,
     text: `<h4>Write on the wall</h4>
       <div class="row"><input class="field" id="text-input" maxlength="60" placeholder="e.g. I miss you!" enterkeyhint="done"><button class="btn small" data-add-text>Add</button></div>
-      <h4>Color</h4><div class="swatches">${INK.map(c => `<button class="sw ${c === textInk ? 'on' : ''}" style="background:${c}" data-text-ink="${c}"></button>`).join('')}</div>
+      <h4>Color</h4>${swatches(PALETTE, textInk, 'data-text-ink')}
       <p class="hint">🔒 Words are protected from the other person for 1 hour.</p>`,
   };
   b.innerHTML = html[decoTab];
 }
 const LOOK_LOG = { wall: 'painted the wall 🎨', wp: 'changed the wallpaper 🖼️', floor: 'changed the floor 🪵', fl: 'changed the floor 🪵', rug: 'got a new rug 🧶', cur: 'hung new curtains 🪟' };
+function setLook(key, val) {
+  store.update(`${sp()}/look`, { [key]: val });
+  logAct(key, `${LOOK_LOG[key]} in the ${ROOMS[view].name.toLowerCase()}`);
+}
 
 function renderDrawPanel() {
   $('#stage').classList.toggle('erasing', tool === 'erase');
-  $('#dock').innerHTML = head('✏️ Draw on the wall', tool === 'erase' ? 'Rub over drawings or words to erase' : 'Use your finger on the wall') +
+  $('#dock').innerHTML = head('✏️ Draw on the wall', tool === 'erase' ? 'Rub over drawings or words to erase' : 'Draw on the wall · swipe the floor to look around') +
     `<div class="panel-body">
       <div class="chips"><button class="chip ${tool === 'pen' ? 'on' : ''}" data-tool="pen">✏️ Pen</button><button class="chip ${tool === 'erase' ? 'on' : ''}" data-tool="erase">🧽 Eraser</button></div>
-      ${tool === 'pen' ? `<div class="swatches" style="margin-top:12px">${INK.map(c => `<button class="sw ${c === ink ? 'on' : ''}" style="background:${c}" data-ink="${c}"></button>`).join('')}</div>` : ''}
+      ${tool === 'pen' ? `<div style="margin-top:12px">${swatches(PALETTE, ink, 'data-ink', { small: true })}</div>` : ''}
       <div class="row between" style="margin-top:12px">
         <div class="row brushes">${BRUSHES.map(w => `<button class="${w === brush ? 'on' : ''}" data-brush="${w}" aria-label="Size ${w}"><i style="width:${w / 1.3 + 3}px;height:${w / 1.3 + 3}px"></i></button>`).join('')}</div>
         <div class="row"><button class="btn ghost small" data-undo>↶ Undo</button><button class="btn ghost small" data-wipe>🗑️ Clear</button></div>
@@ -1196,15 +1531,20 @@ function renderGamesPanel() {
   const both = isOnline(other);
   $('#dock').innerHTML = head('🕹️ Game corner', 'Play together when you’re both home') +
     `<div class="panel-body">
-      <div class="status ${both ? 'ok' : 'wait'}">${both ? `🎉 You’re both here! Games are on the way…` : `⏳ Waiting for ${esc(prof(other).name)} to come home`}</div>
+      <div class="status ${both ? 'ok' : 'wait'}">${both ? `🎉 You’re both here! Games are on the way…` : `⏳ Waiting for ${esc(called(other))} to come home`}</div>
       ${GAMES.map(([i, n, d]) => `<div class="game"><div class="gi">${i}</div><div><b>${n}<span class="soon">SOON</span></b><p>${d}</p></div></div>`).join('')}
     </div>`;
 }
 
 function renderProfilePanel() {
+  const theirNick = nick(me);
   $('#dock').innerHTML = head('🙂 You') +
-    `<div class="panel-body" id="profile-body">${profileForm(me)}
+    `<div class="panel-body" id="profile-body">
+      ${theirNick ? `<div class="status ok">💕 ${esc(prof(other).name)} calls you <b>${esc(theirNick)}</b></div>` : ''}
+      ${profileForm(me)}
       <button class="btn wide" style="margin-top:16px" data-save-profile>Save</button>
+      <h4 style="margin-top:22px">Nickname for ${esc(prof(other).name)}</h4>
+      <button class="btn ghost wide small" data-nick-open>🏷️ ${nick(other) ? `“${esc(nick(other))}” — change` : 'Give a nickname'}</button>
       <h4 style="margin-top:22px">Invite link</h4>
       <p class="muted">Your partner opens this on their phone to join. Keep it private!</p>
       <div class="linkbox"><input class="field" readonly value="${esc(inviteLink())}"><button class="btn small" data-share>Share</button></div>
@@ -1222,13 +1562,12 @@ let callTimer = null, muted = false;
 const callUI = {
   set(s) {
     stopRing(); clearInterval(callTimer);
-    const bar = $('#callbar'), n = esc(prof(other).name);
+    const bar = $('#callbar'), n = esc(called(other));
     if (overlayMode === 'incoming' && s !== 'incoming') hideOverlay();
     if (s === 'idle') { bar.hidden = true; muted = false; return; }
     if (s === 'incoming') {
       bar.hidden = true; startRing('ring');
-      const p = prof(other);
-      return showCard(`<div class="big bounce">${esc(p.face)}</div><h2>${n} is calling!</h2><p class="muted">📞 Voice call</p>
+      return showCard(`<div class="big bounce">${esc(prof(other).face)}</div><h2>${n} is calling!</h2><p class="muted">📞 Voice call</p>
         <div class="row" style="justify-content:center;margin-top:18px"><button class="btn red" data-decline>Decline</button><button class="btn green" data-accept>Answer</button></div>`, 'incoming');
     }
     bar.hidden = false; bar.className = s;
@@ -1247,18 +1586,19 @@ const callUI = {
 };
 function onCallButton() {
   if (call.state !== 'idle') return;
-  if (!isOnline(other)) return toast(`${esc(prof(other).name)} isn’t home right now 💤<br>Leave a message 💬 or a note 📌!`);
+  if (!isOnline(other)) return toast(`${esc(called(other))} isn’t home right now 💤<br>Leave a message 💬 or a note 📌!`);
   call.start();
 }
 
 // ── Global click routing ─────────────────────────────────────
-document.addEventListener('click', e => {
-  const t = e.target.closest('button'); if (!t) return;
-  const d = t.dataset;
-  unlockAudio();
+function route(d, t) {
   if ('close' in d) return closePanel();
   if (d.panel) return openPanel(d.panel);
   if (d.action === 'call') return onCallButton();
+  if (d.zoom) {
+    if (d.zoom === 'me') { cam.z = 1; layoutWorld(); const m = avatarEl(me); return centerOn(m?._x ?? 50, m?._y ?? 72); }
+    return zoomAt(cam.z * (d.zoom === 'in' ? 1.25 : 0.8));
+  }
   if (d.open) { hideOverlay(); return openPanel(d.open); }
   if ('dismiss' in d) return hideOverlay();
   if ('reload' in d) return location.reload();
@@ -1271,9 +1611,15 @@ document.addEventListener('click', e => {
   }
   if (d.slot) return showSetup(d.slot);
   if ('back' in d) return showWelcome();
-  if (d.pick || d.pickColor || d.pickHat !== undefined) {
-    const sel = d.pick ? '[data-pick]' : d.pickColor ? '[data-pick-color]' : '[data-pick-hat]';
+  if (d.pick !== undefined || d.pickHat !== undefined) {
+    const sel = d.pick !== undefined ? '[data-pick]' : '[data-pick-hat]';
     $$(sel, t.parentElement).forEach(x => x.classList.remove('on')); t.classList.add('on'); return;
+  }
+  if (d.pickColor) {
+    const box = t.closest('.swatches');
+    let btn = $(`button[data-pick-color="${d.pickColor}"]`, box);
+    if (!btn) { btn = document.createElement('button'); btn.className = 'sw'; btn.dataset.pickColor = d.pickColor; btn.style.background = d.pickColor; box.prepend(btn); }
+    $$('.sw', box).forEach(x => x.classList.remove('on')); btn.classList.add('on'); return;
   }
   if (d.setupDone) {
     me = d.setupDone;
@@ -1295,11 +1641,28 @@ document.addEventListener('click', e => {
     try { localStorage.removeItem(`ourroom:me:${roomId}`); } catch {}
     location.href = `${location.pathname}?room=${roomId}`; return;
   }
+  if ('nickOpen' in d) { hideEmotebar(); return showNickCard(); }
+  if (d.nickIdea) { $('#nick-input').value = d.nickIdea; return; }
+  if ('nickSave' in d || 'nickClear' in d) {
+    const v = 'nickClear' in d ? '' : $('#nick-input').value.trim().slice(0, 24);
+    store.update('nicks', { [other]: v || null });
+    if (v) { store.push('log', { by: me, text: `gave you a new nickname: “${v}” 🏷️`, ts: store.now() }); toast(`🏷️ ${esc(prof(other).name)} is now <b>${esc(v)}</b>`); }
+    hideOverlay();
+    if (panel === 'profile') renderProfilePanel();
+    return;
+  }
   if (d.emote) return sendEmote(d.emote);
   if (d.bonk) return tryBonk(d.bonk);
+  if (d.kick) return tryKick(d.kick);
   if (d.item) return itemAction(d.item);
+  if (d.itemColor) { if (S.items[selectedItem]) store.update(`${sp()}/items/${selectedItem}`, { c: d.itemColor }); return; }
+  if (d.itemFrame) { if (S.items[selectedItem]) store.update(`${sp()}/items/${selectedItem}`, { f: d.itemFrame }); return; }
   if (d.tab) { decoTab = d.tab; $$('.tabs .chip').forEach(c => c.classList.toggle('on', c.dataset.tab === decoTab)); return renderDecoBody(); }
-  if (d.set) { store.update(`${sp()}/look`, { [d.set]: d.val }); logAct(d.set, `${LOOK_LOG[d.set]} in the ${ROOMS[view].name.toLowerCase()}`); return; }
+  if (d.set) return setLook(d.set, d.val);
+  if (d.lookWall) return setLook('wall', d.lookWall);
+  if (d.lookFloor) return setLook('floor', d.lookFloor);
+  if (d.lookRug) return setLook('rug', d.lookRug);
+  if (d.lookCur) return setLook('cur', d.lookCur);
   if (d.theme) {
     const [icon, name, , vals] = THEMES[+d.theme];
     store.update(`${sp()}/look`, vals); sfx.pop();
@@ -1311,25 +1674,43 @@ document.addEventListener('click', e => {
   if (d.frame) { photoFrame = d.frame; $$('[data-frame]').forEach(x => x.classList.toggle('on', x === t)); return; }
   if ('addPhoto' in d) return $('#photo-input').click();
   if ('addText' in d) return addText();
-  if (d.textInk) { textInk = d.textInk; $$('[data-text-ink]').forEach(x => x.classList.toggle('on', x === t)); return; }
+  if (d.textInk) { textInk = d.textInk; return markSwatch(t, 'data-text-ink'); }
   if (d.tool) { tool = d.tool; return renderDrawPanel(); }
-  if (d.ink) { ink = d.ink; $$('[data-ink]').forEach(x => x.classList.toggle('on', x === t)); return; }
+  if (d.ink) { ink = d.ink; return markSwatch(t, 'data-ink'); }
   if (d.brush) { brush = +d.brush; $$('[data-brush]').forEach(x => x.classList.toggle('on', x === t)); return; }
   if ('undo' in d) return undoStroke();
   if ('wipe' in d) return clearWall();
   if (d.quick) return sendChat(d.quick);
-  if (d.noteColor) { noteColor = d.noteColor; $$('[data-note-color]').forEach(x => x.classList.toggle('on', x === t)); return; }
+  if (d.noteColor) { noteColor = d.noteColor; return markSwatch(t, 'data-note-color'); }
   if ('pin' in d) return pinNote();
   if (d.delNote) { if (confirm('Remove this note?')) store.remove(`notes/${d.delNote}`); return; }
   if ('accept' in d) return call.accept();
   if ('decline' in d) return call.decline();
   if ('hangup' in d) return call.hangup();
   if ('mute' in d) { muted = call.mute(); t.textContent = muted ? '🔇' : '🎙️'; return; }
+}
+function markSwatch(t, attr) {
+  const box = t.closest('.swatches'); if (!box) return;
+  $$(`[${attr}]`, box).forEach(x => x.classList.toggle('on', x === t));
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  unlockAudio();
+  route(t.dataset, t);
+});
+// 🌈 "any color" pickers: behave like tapping a swatch of that color
+document.addEventListener('change', e => {
+  const inp = e.target;
+  if (inp.type !== 'color' || !inp.dataset.custom) return;
+  const key = inp.dataset.custom.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  route({ [key]: inp.value }, inp);
 });
 
 $('#photo-input').addEventListener('change', e => { const f = e.target.files?.[0]; e.target.value = ''; addPhoto(f); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.id === 'text-input') { e.preventDefault(); addText(); }
   if (e.key === 'Enter' && e.target.id === 'join-input') $('[data-join-room]')?.click();
+  if (e.key === 'Enter' && e.target.id === 'nick-input') $('[data-nick-save]')?.click();
 });
 addEventListener('resize', () => { positionItembar(); if (emoteTarget) positionEmotebar(); });

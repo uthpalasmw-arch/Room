@@ -28,6 +28,7 @@
   <div id="callbar" hidden></div>
   <main id="stage-wrap">
     <div id="stage">
+      <div id="world">
       <div id="wall">
         <div id="window" aria-label="Window">
           <div class="sky"><span class="sun"></span><span class="stars"></span><span class="cloud c1">☁️</span><span class="cloud c2">☁️</span></div>
@@ -49,16 +50,24 @@
       <div id="avatars"></div>
       <div id="fx"></div>
       <div id="dark"></div>
-      <div id="fade"></div>
       <div id="itembar" class="popbar" hidden>
         <button data-item="smaller" aria-label="Smaller">➖</button>
         <button data-item="bigger" aria-label="Bigger">➕</button>
         <button data-item="style" aria-label="Change color or frame">🎨</button>
+        <button data-item="turn" aria-label="Turn around">🔄</button>
         <button data-item="flip" aria-label="Flip">↔️</button>
         <button data-item="front" aria-label="Bring to front">⬆️</button>
         <button data-item="delete" aria-label="Remove">🗑️</button>
       </div>
       <div id="emotebar" class="popbar" hidden></div>
+      </div>
+      <div id="fade"></div>
+      <div class="zoombar">
+        <button data-zoom="in" aria-label="Zoom in">＋</button>
+        <button data-zoom="out" aria-label="Zoom out">－</button>
+        <button data-zoom="me" aria-label="Find me">🎯</button>
+      </div>
+      <div id="power-timer" class="power-timer" hidden></div>
     </div>
   </main>
   <section id="dock" hidden></section>

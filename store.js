@@ -13,7 +13,8 @@ const pushId = () =>
   Array.from(crypto.getRandomValues(new Uint8Array(6)), b => CH[b % 36]).join('');
 
 export async function createStore(roomId) {
-  if (CONFIG.firebase && CONFIG.firebase.apiKey) return firebaseStore(roomId);
+  const demo = new URLSearchParams(location.search).has('demo');   // ?demo=1 → test without touching real data
+  if (CONFIG.firebase && CONFIG.firebase.apiKey && !demo) return firebaseStore(roomId);
   return localStore(roomId);
 }
 
@@ -39,6 +40,11 @@ async function firebaseStore(roomId) {
     update: (p, v) => D.update(r(p), clean(v)),
     push(p, v) { const k = D.push(r(p)); D.set(k, clean(v)); return k.key; },
     newKey: p => D.push(r(p)).key,
+    // Atomic read-modify-write: fn returns the new value, or undefined to cancel.
+    async transact(p, fn) {
+      const res = await D.runTransaction(r(p), cur => { const v = fn(cur); return v === undefined ? undefined : clean(v); });
+      return res.committed;
+    },
     remove: p => D.remove(r(p)),
     now: () => Date.now() + offset,
     presence(me) {
@@ -97,6 +103,13 @@ function localStore(roomId) {
     update(p, obj) { tree = load(); const base = split(p); for (const [k, v] of Object.entries(obj)) write([...base, ...split(k)], clean(v)); commit(); },
     push(p, v) { const k = pushId(); api.set(`${p}/${k}`, v); return k; },
     newKey: () => pushId(),
+    async transact(p, fn) {
+      tree = load();
+      const v = fn(clean(get(split(p)) ?? null));
+      if (v === undefined) return false;
+      write(split(p), clean(v)); commit();
+      return true;
+    },
     remove(p) { tree = load(); write(split(p), null); commit(); },
     now: () => Date.now(),
     presence(me) {
