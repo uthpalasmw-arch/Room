@@ -1,9 +1,9 @@
-import { createStore } from './store.js?v=5';
-import { createCall } from './call.js?v=5';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=5';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=5';
-import { initTV } from './tv.js?v=5';
-import { initGames } from './games.js?v=5';
+import { createStore } from './store.js?v=6';
+import { createCall } from './call.js?v=6';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=6';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=6';
+import { initTV } from './tv.js?v=6';
+import { initGames } from './games.js?v=6';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -286,7 +286,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 5;
+const VERSION = 6;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -491,7 +491,7 @@ async function openSpace(rid) {
   S.look = {}; S.items = {}; S.strokes = {};
   selectItem(null);
   $('#items').innerHTML = '';
-  $('#stage').classList.remove('rm-living', 'rm-bedroom');
+  $('#stage').classList.remove(...Object.keys(ROOMS).map(r => 'rm-' + r));   // clear every room's look
   $('#stage').classList.add('rm-' + rid);
   $('.door-sign').textContent = '🚪 Rooms';
 
