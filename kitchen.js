@@ -7,7 +7,7 @@ const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { cons
 
 export const CATS = [['drinks', '☕ Drinks'], ['breakfast', '🥞 Breakfast'], ['meals', '🍝 Meals'], ['lanka', '🇱🇰 Sri Lankan'], ['desserts', '🎂 Desserts'], ['snacks', '🍿 Snacks']];
 // Which recipe tab each appliance opens
-export const APPLIANCE_CAT = { fridge: 'all', kettle: 'drinks', coffee: 'drinks', blender: 'drinks', toaster: 'breakfast', stove: 'meals', microwave: 'snacks', sink: 'all', counter: 'all', wcabinet: 'all' };
+export const APPLIANCE_CAT = { fridge: 'fridge', kettle: 'drinks', coffee: 'drinks', blender: 'drinks', toaster: 'breakfast', stove: 'meals', microwave: 'snacks', sink: 'all', counter: 'all', wcabinet: 'all' };
 
 const INGREDIENTS = ['🥚', '🥛', '🧈', '🧀', '🍅', '🧅', '🧄', '🥕', '🥔', '🍚', '🍞', '🥬', '🌶️', '🍋', '🍓', '🍌', '🍫', '🍯', '🍃', '💧', '🧂', '🍗', '🐟', '🍤', '🥥', '🌽', '🍄', '🌾', '🍬', '🍎', '🥒', '🥑', '🍇', '🧊', '☕', '🥜', '🍍', '🥩', '🟤', '🟠', '🫓', '🍦'];
 
@@ -94,7 +94,7 @@ export function initKitchen(ctx) {
     ctx.showCard(`<div class="cook-head"><span class="dish">${r.e}</span><div><b>${esc(r.n)}</b><small>${r.steps.length} steps</small></div><button class="x" data-book-back aria-label="Back">←</button></div>
       <ol class="step-list">${r.steps.map(([t, label]) => `<li>${VERB[t]} ${esc(label)}</li>`).join('')}</ol>
       <div class="stack">
-        <button class="btn wide" data-cook-solo="${id}">👩‍🍳 Cook it</button>
+        <button class="btn wide" data-cook-solo="${id}">👩‍🍳 Cook it alone</button>
         ${canTogether ? `<button class="btn ghost wide" data-cook-together="${id}">👫 Cook together with ${esc(ctx.called(other()))}</button>`
           : `<p class="hint">👫 Cook together: both of you need to be in the kitchen.</p>`}
       </div>`, 'book', 'cook');
@@ -339,6 +339,11 @@ export function initKitchen(ctx) {
   }
 
   // Cooking together: a shared session at /cook, players take turns doing the steps.
+  // Finished sessions are remembered on this phone so they never pop up twice.
+  const DONE_KEY = 'ourroom:cookdone';
+  const doneIds = () => { try { return JSON.parse(localStorage.getItem(DONE_KEY)) || []; } catch { return []; } };
+  const markDone = id => { try { localStorage.setItem(DONE_KEY, JSON.stringify([...doneIds().slice(-20), id])); } catch {} };
+
   function inviteTogether(id) {
     ctx.store.set('cook', { id: ctx.store.now().toString(36), r: id, players: [me(), other()], step: 0, state: 'invite', by: me(), ts: ctx.store.now() });
     ctx.showCard(`<div class="big bounce">👫</div><h2>Waiting for ${esc(ctx.called(other()))}…</h2><p class="muted">Asking them to cook ${esc(R[id].n)} with you ${R[id].e}</p>
@@ -347,13 +352,15 @@ export function initKitchen(ctx) {
   function onSession(v) {
     const was = lastSession; lastSession = v;
     if (!v || !v.players?.includes(me())) return;
-    if (ctx.store.now() - v.ts > 45 * 60000) return;
+    const age = ctx.store.now() - (v.upd || v.ts);
+    if (['done', 'cancel'].includes(v.state) && age > 60000) { ctx.store.remove('cook'); return; }   // tidy up old sessions
+    if (age > 30 * 60000 || doneIds().includes(v.id)) return;           // old or already finished here
     const r = R[v.r]; if (!r) return;
     const key = `${v.id}:${v.state}:${v.step}`;
     if (key === shownKey) return;
     shownKey = key;
     if (v.state === 'invite') {
-      if (v.by === me()) return;
+      if (v.by === me() || age > 120000) return;
       sfx.ding(); navigator.vibrate?.([100, 60, 100]);
       return ctx.showCard(`<div class="big bounce">${r.e}</div><h2>${esc(ctx.called(v.by))} wants to cook with you!</h2>
         <p class="muted">👫 Let’s make <b>${esc(r.n)}</b> together — you take turns doing the steps.</p>
@@ -361,13 +368,14 @@ export function initKitchen(ctx) {
     }
     if (v.state === 'cancel') {
       cleanup?.(); cleanup = null;
+      markDone(v.id);
       if (['cook', 'cook-wait', 'cook-invite'].includes(ctx.overlayMode())) ctx.hideOverlay();
       if (was?.state && was.state !== 'cancel' && v.quitBy !== me()) ctx.toast(`${esc(ctx.called(v.quitBy || other()))} stopped cooking 🍳`);
       return;
     }
     if (v.state === 'on') {
-      if (v.step >= r.steps.length) {
-        if (v.by === me()) ctx.store.update('cook', { state: 'done' });
+      if (v.step >= r.steps.length) {   // whoever did the last step closes the session
+        ctx.store.update('cook', { state: 'done', upd: ctx.store.now() });
         return;
       }
       const turn = v.players[v.step % 2];
@@ -377,54 +385,57 @@ export function initKitchen(ctx) {
         const step = v.step;
         cleanup = GAMES[r.steps[step][0]](area, r.steps[step][2], (score, extra) => {
           cleanup?.(); cleanup = null;
-          ctx.store.update('cook', { [`sc/${step}`]: score, [`ex/${step}`]: extra || null, step: step + 1, ...(extra?.burnt ? { burnt: true } : {}) });
+          ctx.store.update('cook', { [`sc/${step}`]: score, [`ex/${step}`]: extra || null, step: step + 1, upd: ctx.store.now(), ...(extra?.burnt ? { burnt: true } : {}) });
         });
       }
       return;
     }
     if (v.state === 'done') {
       cleanup?.(); cleanup = null;
+      markDone(v.id);
       const n = r.steps.length;
       const scores = Array.from({ length: n }, (_, i) => v.sc?.[i] ?? 0.7);
       const extras = Array.from({ length: n }, (_, i) => v.ex?.[i] ?? null);
-      finish({ r, scores, extras, burnt: !!v.burnt, together: true, starter: v.by === me() });
+      finish({ r, scores, extras, burnt: !!v.burnt, together: true });
+      if (v.by === me()) {
+        ctx.store.push('log', { by: me(), text: `cooked ${r.n} ${r.e} with you 👫`, ts: ctx.store.now() });
+        setTimeout(() => { if (lastSession?.id === v.id) ctx.store.remove('cook'); }, 15000);
+      }
     }
   }
   function quit() {
     cleanup?.(); cleanup = null;
     if (solo) { solo = null; ctx.hideOverlay(); return; }
     const v = lastSession;
-    if (v && v.players?.includes(me()) && ['invite', 'on'].includes(v.state)) ctx.store.update('cook', { state: 'cancel', quitBy: me() });
+    if (v && v.players?.includes(me()) && ['invite', 'on'].includes(v.state)) ctx.store.update('cook', { state: 'cancel', quitBy: me(), upd: ctx.store.now() });
     ctx.hideOverlay();
   }
 
   // ── Result, serving & eating ───────────────────────────────
   let result = null;
-  function finish({ r, scores, extras, burnt, together, starter }) {
+  function finish({ r, scores, extras, burnt, together }) {
     solo = null;
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
     const stars = burnt ? 0 : avg >= 0.85 ? 3 : avg >= 0.6 ? 2 : 1;
     const add = extras.find(x => x?.add)?.add;
     const name = `${burnt ? 'Burnt ' : ''}${r.n}${add ? ` with ${add[1]}` : ''}`;
-    result = { r, name, stars, burnt, top: add?.[0] || '', together };
+    result = { e: r.e, hot: !!r.hot, name, stars, burnt, top: add?.[0] || '', together };
     sfx[burnt ? 'whiff' : 'yay']();
     const starTxt = burnt ? '🖤 Oops!' : '⭐'.repeat(stars);
-    if (together) {
-      if (starter) serveTogether();
-      return ctx.showCard(`<div class="result-dish ${burnt ? 'burnt' : ''}">${r.e}<span>${result.top}</span></div><h2>${esc(name)}</h2><div class="stars">${starTxt}</div>
-        <p class="muted">👫 You made it together! ${burnt ? 'It’s… crispy. Very crispy. 😂' : 'Two portions are on the kitchen table 🍽️'}</p>
-        <button class="btn wide" data-dismiss>Yum! 💕</button>`, 'result', 'cook');
-    }
-    const canGive = ctx.joined(other());
-    ctx.showCard(`<div class="result-dish ${burnt ? 'burnt' : ''}">${r.e}<span>${result.top}</span></div><h2>${esc(name)}</h2><div class="stars">${starTxt}</div>
-      <p class="muted">${burnt ? 'Well… it’s edible? Maybe? 😂' : stars === 3 ? 'Chef’s kiss! 👨‍🍳💋' : 'Looks tasty!'}</p>
+    const note = together ? `👫 You made it together! This portion is yours${burnt ? ' — it’s… crispy 😂' : ' 💕'}`
+      : burnt ? 'Well… it’s edible? Maybe? 😂' : stars === 3 ? 'Chef’s kiss! 👨‍🍳💋' : 'Looks tasty!';
+    const canGive = !together && ctx.joined(other());
+    ctx.showCard(`<div class="cook-head"><span></span><div></div><button class="x" data-serve="table" aria-label="Close">✕</button></div>
+      <div class="result-dish ${burnt ? 'burnt' : ''}">${r.e}<span>${result.top}</span></div><h2>${esc(name)}</h2><div class="stars">${starTxt}</div>
+      <p class="muted">${note}</p>
       <div class="stack">
-        ${canGive ? `<button class="btn wide" data-serve="give">💝 Give it to ${esc(ctx.called(other()))}</button>` : ''}
+        <button class="btn wide" data-serve="eat">😋 Eat it now</button>
+        ${canGive ? `<button class="btn ghost wide" data-serve="give">💝 Give it to ${esc(ctx.called(other()))}</button>` : ''}
+        <button class="btn ghost wide" data-serve="fridge">🧊 Put it in the fridge</button>
         <button class="btn ghost wide" data-serve="table">🍽️ Put it on the table</button>
-        <button class="btn ghost wide" data-serve="eat">😋 Eat it myself</button>
       </div>`, 'result', 'cook');
   }
-  const foodData = (res, forId, by) => ({ t: 'food', v: res.r.e, top: res.top, n: res.name, q: res.stars, burnt: res.burnt || null, hot: res.r.hot || null, for: forId || null, by, s: 0.9 });
+  const foodData = (res, forId, by) => ({ t: 'food', v: res.e, top: res.top || '', n: res.name, q: res.stars, burnt: res.burnt || null, hot: res.hot || null, for: forId || null, by, s: 0.9 });
 
   // Find a table (or counter) in a room to put food on; otherwise next to someone.
   async function spotIn(rm, nearId) {
@@ -439,27 +450,29 @@ export function initKitchen(ctx) {
     const a = ctx.avatar(nearId) || { x: 50, y: 80 };
     return { x: +clamp(a.x + rand(-9, 9), 8, 150).toFixed(1), y: +clamp(a.y + 1, 60, 97).toFixed(1) };
   }
-  async function serve(how) {
-    const res = result; if (!res) return;
-    result = null;
-    if (how === 'eat') { ctx.hideOverlay(); return eatAnim(me(), res.r.e, res.burnt); }
-    const forId = how === 'give' ? other() : null;
+  // Put a dish somewhere: 'eat' | 'give' | 'table' | 'fridge'
+  async function place(res, how) {
+    if (how === 'eat') return eatAnim(me(), res.e, res.burnt);
+    if (how === 'fridge') {
+      ctx.store.push('fridge', { ...foodData(res, res.for || null, res.by || (res.together ? 'both' : me())), ts: ctx.store.now() });
+      ctx.toast(`🧊 ${esc(res.name)} is in the fridge`); sfx.pop();
+      return;
+    }
+    const forId = how === 'give' ? other() : (res.together ? me() : res.for || null);
     const rm = how === 'give' && ctx.isOnline(other()) ? ctx.roomOf(other()) : ctx.view();
-    const spot = await spotIn(rm, forId || me());
-    ctx.store.push(`spaces/${rm}/items`, { ...foodData(res, forId, me()), ...spot, ts: ctx.store.now() });
-    ctx.hideOverlay();
-    if (forId) {
-      ctx.store.push('log', { by: me(), text: `made you ${res.name} ${res.r.e}${res.burnt ? ' (it’s burnt 😂)' : ' ' + '⭐'.repeat(res.stars)}`, ts: ctx.store.now() });
+    const spot = await spotIn(rm, how === 'give' ? other() : me());
+    ctx.store.push(`spaces/${rm}/items`, { ...foodData(res, forId, res.by || (res.together ? 'both' : me())), ...spot, ...(how === 'give' ? { from: me() } : {}), ts: ctx.store.now() });
+    if (how === 'give') {
+      ctx.store.push('log', { by: me(), text: res.by === 'fridge' ? `brought you ${res.name} ${res.e} from the fridge 💝` : res.by && res.by !== me() ? `gave you ${res.name} ${res.e} 💝` : `made you ${res.name} ${res.e}${res.burnt ? ' (it’s burnt 😂)' : ' ' + '⭐'.repeat(res.stars)}`, ts: ctx.store.now() });
       ctx.toast(`💝 ${esc(res.name)} is waiting for ${esc(ctx.called(other()))}${rm !== ctx.view() ? ` in the ${esc(ctx.roomName(rm).toLowerCase())}` : ''}!`);
     } else ctx.toast(`🍽️ ${esc(res.name)} is on the table`);
-    ctx.sfx.pop();
+    sfx.pop();
   }
-  async function serveTogether() {
-    const res = result; if (!res) return;
-    const spots = [await spotIn('kitchen', me()), await spotIn('kitchen', other())];
-    const now = ctx.store.now();
-    [me(), other()].forEach((id, i) => ctx.store.push('spaces/kitchen/items', { ...foodData(res, id, 'both'), ...spots[i], ts: now }));
-    ctx.store.push('log', { by: me(), text: `cooked ${res.name} ${res.r.e} with you 👫`, ts: now });
+  function serve(how) {
+    const res = result; ctx.hideOverlay();
+    if (!res) return;
+    result = null;
+    place(res, how);
   }
 
   function eatAnim(who, emoji, burnt) {
@@ -468,47 +481,98 @@ export function initKitchen(ctx) {
     setTimeout(() => ctx.spawnFx(burnt ? '🤢' : '😋', el._x + 6, el._y, 18, 'float'), 900);
     [300, 700, 1100].forEach((t, i) => setTimeout(() => { sfx.munch(); ctx.spawnFx(i === 2 ? (burnt ? '💨' : '❤️') : 'nom', el._x + (i - 1) * 6, el._y, 24, 'nom'); }, t));
   }
+  function thankCook(it) {
+    if (!it.by || it.by === me() || it.by === 'both' || it.by === 'fridge') return;
+    const txt = it.burnt ? `ate the burnt ${it.n.replace(/^Burnt /, '')} you made 🤢😂` : `ate the ${it.n} you made ${it.v} — yum! 😋`;
+    ctx.store.push('log', { by: me(), text: txt, ts: ctx.store.now() });
+  }
+
+  const dishCard = (it, sub, buttons) => `<div class="cook-head"><span></span><div></div><button class="x" data-dismiss aria-label="Close">✕</button></div>
+    <div class="result-dish ${it.burnt ? 'burnt' : ''}">${esc(it.v)}<span>${esc(it.top || '')}</span></div><h2>${esc(it.n)}</h2>
+    <div class="stars">${it.burnt ? '🖤' : '⭐'.repeat(it.q || 1)}</div><p class="muted">${sub}</p><div class="stack">${buttons}</div>`;
+  const madeBy = it => it.by === 'both' ? 'you two 👫' : it.by === 'fridge' ? 'the shop 🛒' : it.by === me() ? 'you' : esc(ctx.called(it.by));
 
   function openFood(id) {
     const it = ctx.items()[id]; if (!it) return;
-    const maker = it.by === 'both' ? 'you two 👫' : it.by === me() ? 'you' : ctx.called(it.by);
     const stale = ctx.store.now() - it.ts > 86400000;
     const forTxt = it.for === me() ? ' — for you 💝' : it.for ? ` — for ${esc(ctx.called(it.for))}` : '';
-    ctx.showCard(`<div class="result-dish ${it.burnt ? 'burnt' : ''}">${esc(it.v)}<span>${esc(it.top || '')}</span></div><h2>${esc(it.n)}</h2>
-      <div class="stars">${it.burnt ? '🖤' : '⭐'.repeat(it.q || 1)}</div>
-      <p class="muted">Made by ${esc(maker)}${forTxt} · ${ctx.ago(it.ts)}${stale ? ' · 🪰 hmm, it’s getting old…' : ''}</p>
-      <div class="stack">
-        <button class="btn wide" data-food-eat="${id}">😋 ${it.hot && !stale ? 'Eat it while it’s warm!' : 'Eat it'}</button>
-        ${it.for !== other() && ctx.joined(other()) ? `<button class="btn ghost wide" data-food-give="${id}">💝 Give it to ${esc(ctx.called(other()))}</button>` : ''}
-        <button class="btn ghost wide" data-food-bin="${id}">🗑️ Throw it away</button>
-      </div>`, 'food');
+    ctx.showCard(dishCard(it, `Made by ${madeBy(it)}${forTxt} · ${ctx.ago(it.ts)}${stale ? ' · 🪰 hmm, it’s getting old…' : ''}`,
+      `<button class="btn wide" data-food-eat="${id}">😋 ${it.hot && !stale ? 'Eat it while it’s warm!' : 'Eat it'}</button>
+       ${it.for !== other() && ctx.joined(other()) ? `<button class="btn ghost wide" data-food-give="${id}">💝 Give it to ${esc(ctx.called(other()))}</button>` : ''}
+       <button class="btn ghost wide" data-food-fridge="${id}">🧊 Put it in the fridge</button>
+       <button class="btn ghost wide" data-food-bin="${id}">🗑️ Throw it away</button>`), 'food');
   }
   function eat(id) {
-    const it = ctx.items()[id]; if (!it) return ctx.hideOverlay();
+    const it = ctx.items()[id]; ctx.hideOverlay(); if (!it) return;
     ctx.store.remove(`spaces/${ctx.view()}/items/${id}`);
-    ctx.hideOverlay();
     eatAnim(me(), it.v, it.burnt);
-    if (it.by && it.by !== me() && it.by !== 'both') {
-      const txt = it.burnt ? `ate the burnt ${it.n.replace(/^Burnt /, '')} you made 🤢😂` : `ate the ${it.n} you made ${it.v} — yum! 😋`;
-      ctx.store.push('log', { by: me(), text: txt, ts: ctx.store.now() });
-    }
+    thankCook(it);
   }
   async function give(id) {
-    const it = ctx.items()[id]; if (!it) return;
+    const it = ctx.items()[id]; ctx.hideOverlay(); if (!it) return;
     const rm = ctx.isOnline(other()) ? ctx.roomOf(other()) : ctx.view();
-    ctx.hideOverlay();
-    if (rm === ctx.view()) {
-      const spot = ctx.isOnline(other()) ? await spotIn(rm, other()) : {};
-      ctx.store.update(`spaces/${rm}/items/${id}`, { for: other(), ...spot });
-    } else {
-      const spot = await spotIn(rm, other());
+    const spot = rm === ctx.view() && !ctx.isOnline(other()) ? {} : await spotIn(rm, other());
+    if (rm === ctx.view()) ctx.store.update(`spaces/${rm}/items/${id}`, { for: other(), ...spot });
+    else {
       ctx.store.remove(`spaces/${ctx.view()}/items/${id}`);
       ctx.store.push(`spaces/${rm}/items`, { ...it, for: other(), ...spot, ts: ctx.store.now() });
     }
     ctx.store.push('log', { by: me(), text: `gave you ${it.n} ${it.v} 💝`, ts: ctx.store.now() });
     ctx.toast(`💝 Sent to ${esc(ctx.called(other()))}!`);
   }
-  function bin(id) { ctx.store.remove(`spaces/${ctx.view()}/items/${id}`); ctx.hideOverlay(); ctx.sfx.pop(); }
+  function toFridge(id) {
+    const it = ctx.items()[id]; ctx.hideOverlay(); if (!it) return;
+    ctx.store.remove(`spaces/${ctx.view()}/items/${id}`);
+    const { x, y, z, ...rest } = it;
+    ctx.store.push('fridge', { ...rest, hot: null });
+    ctx.toast(`🧊 ${esc(it.n)} is in the fridge`); sfx.pop();
+  }
+  function bin(id) { ctx.store.remove(`spaces/${ctx.view()}/items/${id}`); ctx.hideOverlay(); sfx.pop(); }
+
+  // ── 🧊 Fridge ──────────────────────────────────────────────
+  let fridge = {};
+  const SNACKS = [['🧃', 'Juice box'], ['🍦', 'Ice cream'], ['🍫', 'Chocolate'], ['🍎', 'Apple'], ['🍰', 'Cake slice'], ['🍉', 'Watermelon'], ['🥛', 'Glass of milk'], ['🧀', 'Cheese'], ['🍮', 'Pudding'], ['🥤', 'Soda']];
+  function setFridge(v) { fridge = v || {}; if (ctx.overlayMode() === 'fridge') openFridge(); }
+  function openFridgeMenu() {
+    ctx.showCard(`<div class="cook-head"><span class="dish">🧊</span><div><b>The fridge</b><small>What are we doing?</small></div><button class="x" data-dismiss aria-label="Close">✕</button></div>
+      <div class="room-pick"><button data-fridge-open><span>🧊</span><div>Open the fridge<small>${Object.keys(fridge).length} saved dish${Object.keys(fridge).length === 1 ? '' : 'es'} + snacks</small></div></button>
+      <button data-book-open><span>📖</span><div>Cook something<small>Recipe book</small></div></button></div>`, 'fridge-menu');
+  }
+  function openFridge() {
+    const list = Object.entries(fridge).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
+    ctx.showCard(`<div class="cook-head"><span class="dish">🧊</span><div><b>Inside the fridge</b><small>Cold and ready to eat</small></div><button class="x" data-dismiss aria-label="Close">✕</button></div>
+      <h4>Saved food</h4>
+      ${list.length ? `<div class="fridge-grid">${list.map(([k, f]) => `<button data-fridge-item="${esc(k)}" class="${f.burnt ? 'burnt' : ''}"><span>${esc(f.v)}</span>${esc(f.n)}<small>${f.for ? `for ${esc(ctx.called(f.for))}` : `by ${madeBy(f)}`}</small></button>`).join('')}</div>`
+        : '<p class="muted">Nothing saved yet. Cook something and choose 🧊 “Put it in the fridge”.</p>'}
+      <h4>Always stocked</h4>
+      <div class="fridge-grid">${SNACKS.map(([e, n], i) => `<button data-snack="${i}"><span>${e}</span>${n}</button>`).join('')}</div>`, 'fridge', 'cook');
+  }
+  function openFridgeItem(k) {
+    const f = fridge[k]; if (!f) return openFridge();
+    ctx.showCard(dishCard(f, `Made by ${madeBy(f)}${f.for === me() ? ' — for you 💝' : f.for ? ` — for ${esc(ctx.called(f.for))}` : ''} · ${ctx.ago(f.ts)}`,
+      `<button class="btn wide" data-fridge-eat="${esc(k)}">😋 Eat it</button>
+       ${ctx.joined(other()) ? `<button class="btn ghost wide" data-fridge-give="${esc(k)}">💝 Give it to ${esc(ctx.called(other()))}</button>` : ''}
+       <button class="btn ghost wide" data-fridge-out="${esc(k)}">🍽️ Take it out onto the table</button>
+       <button class="btn ghost wide" data-fridge-open>← Back to the fridge</button>`), 'fridge-item', 'cook');
+  }
+  function fridgeAct(k, how) {
+    const f = fridge[k]; ctx.hideOverlay(); if (!f) return;
+    ctx.store.remove(`fridge/${k}`);
+    const res = { e: f.v, name: f.n, stars: f.q || 1, burnt: !!f.burnt, top: f.top || '', hot: false, by: f.by, for: f.for };
+    if (how === 'eat') { eatAnim(me(), f.v, f.burnt); thankCook(f); return; }
+    place(res, how);
+  }
+  function openSnack(i) {
+    const [e, n] = SNACKS[i];
+    result = { e, name: n, stars: 3, burnt: false, top: '', hot: false, by: 'fridge' };
+    ctx.showCard(`<div class="cook-head"><span></span><div></div><button class="x" data-fridge-open aria-label="Back">←</button></div>
+      <div class="result-dish">${e}</div><h2>${esc(n)}</h2>
+      <div class="stack">
+        <button class="btn wide" data-serve="eat">😋 Eat it</button>
+        ${ctx.joined(other()) ? `<button class="btn ghost wide" data-serve="give">💝 Give it to ${esc(ctx.called(other()))}</button>` : ''}
+        <button class="btn ghost wide" data-serve="table">🍽️ Put it on the table</button>
+      </div>`, 'snack', 'cook');
+  }
 
   // Food looks: a dish on a little plate, steam while warm, flies when it's a day old.
   function renderFood(el, it) {
@@ -526,15 +590,12 @@ export function initKitchen(ctx) {
     el.classList.toggle('burnt', !!it.burnt);
     el.classList.toggle('stale', age > 86400000);
     // A present just arrived for me → little popup
-    if (it.for === me() && it.by !== me() && age < 90000 && !seenGifts.has(el.dataset.id) && !ctx.overlayMode()) {
+    if (it.for === me() && (it.from || it.by) !== me() && it.by !== 'both' && age < 90000 && !seenGifts.has(el.dataset.id) && !ctx.overlayMode()) {
       seenGifts.add(el.dataset.id);
-      const who = it.by === 'both' ? null : ctx.called(it.by);
-      if (who) {
-        sfx.ding(); navigator.vibrate?.([80, 50, 80]);
-        ctx.showCard(`<div class="result-dish ${it.burnt ? 'burnt' : ''}">${esc(it.v)}<span>${esc(it.top || '')}</span></div>
-          <h2>${esc(who)} made you ${esc(it.n)}!</h2><div class="stars">${it.burnt ? '🖤 (it’s burnt 😂)' : '⭐'.repeat(it.q || 1)}</div>
-          <div class="row" style="justify-content:center;margin-top:10px"><button class="btn ghost" data-dismiss>Later</button><button class="btn" data-food-eat="${el.dataset.id}">😋 Eat it now</button></div>`, 'food');
-      }
+      sfx.ding(); navigator.vibrate?.([80, 50, 80]);
+      const giver = it.from ? esc(ctx.called(it.from)) : madeBy(it);
+      ctx.showCard(dishCard(it, it.by === 'fridge' ? `${giver} brought you this from the fridge 💝` : it.from && it.from !== it.by ? `${giver} gave you this 💝` : `${giver} made this for you 💝`,
+        `<button class="btn wide" data-food-eat="${el.dataset.id}">😋 Eat it now</button><button class="btn ghost wide" data-dismiss>Later</button>`), 'food');
     }
     seenGifts.add(el.dataset.id);
   }
@@ -542,18 +603,31 @@ export function initKitchen(ctx) {
   function route(d) {
     if (d.bookCat) { bookCat = d.bookCat; openBook(); return true; }
     if (d.recipe) { openRecipe(d.recipe); return true; }
-    if ('bookBack' in d) { openBook(); return true; }
+    if ('bookBack' in d || 'bookOpen' in d) { openBook(); return true; }
     if (d.cookSolo) { startSolo(d.cookSolo); return true; }
     if (d.cookTogether) { inviteTogether(d.cookTogether); return true; }
-    if ('cookAccept' in d) { ctx.store.update('cook', { state: 'on' }); return true; }
-    if ('cookDecline' in d) { ctx.store.update('cook', { state: 'cancel', quitBy: me() }); ctx.hideOverlay(); return true; }
+    if ('cookAccept' in d) { ctx.store.update('cook', { state: 'on', upd: ctx.store.now() }); return true; }
+    if ('cookDecline' in d) { ctx.store.update('cook', { state: 'cancel', quitBy: me(), upd: ctx.store.now() }); ctx.hideOverlay(); return true; }
     if ('cookQuit' in d) { quit(); return true; }
     if (d.serve) { serve(d.serve); return true; }
     if (d.foodEat) { eat(d.foodEat); return true; }
     if (d.foodGive) { give(d.foodGive); return true; }
+    if (d.foodFridge) { toFridge(d.foodFridge); return true; }
     if (d.foodBin) { bin(d.foodBin); return true; }
+    if ('fridgeOpen' in d) { openFridge(); return true; }
+    if (d.fridgeItem) { openFridgeItem(d.fridgeItem); return true; }
+    if (d.fridgeEat) { fridgeAct(d.fridgeEat, 'eat'); return true; }
+    if (d.fridgeGive) { fridgeAct(d.fridgeGive, 'give'); return true; }
+    if (d.fridgeOut) { fridgeAct(d.fridgeOut, 'table'); return true; }
+    if (d.snack) { openSnack(+d.snack); return true; }
     return false;
   }
 
-  return { openBook, onSession, renderFood, openFood, route, busy: () => !!solo || (lastSession?.state === 'on' && lastSession.players?.includes(me())) };
+  // Overlays that are safe to close by tapping outside them
+  const CLOSABLE = ['book', 'food', 'fridge', 'fridge-menu', 'fridge-item', 'snack'];
+
+  return {
+    openBook, openFridgeMenu, setFridge, onSession, renderFood, openFood, route, CLOSABLE,
+    busy: () => !!solo || (lastSession?.state === 'on' && lastSession.players?.includes(me())),
+  };
 }

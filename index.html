@@ -26,6 +26,21 @@
     <span id="demo-badge" hidden title="Demo mode: only works on this device">DEMO</span>
   </header>
   <div id="callbar" hidden></div>
+  <div id="tvstrip" hidden></div>
+  <div id="tvbox" hidden>
+    <div class="tv-frame"><div id="yt-frame"></div><div class="tv-shield"></div><button class="tv-tap" data-tv="kick" hidden>▶️ Tap to watch together</button></div>
+    <div class="tv-title">🎬</div>
+    <div class="tv-ctrl">
+      <button data-tv="back" aria-label="Back 10 seconds">⏪</button>
+      <button data-tv="toggle" class="main" aria-label="Play or pause">⏸</button>
+      <button data-tv="fwd" aria-label="Forward 10 seconds">⏩</button>
+      <span class="tv-time">0:00</span>
+      <button data-tv="voldown" aria-label="Volume down">🔉</button>
+      <button data-tv="mute" class="tv-vol" aria-label="Mute">70%</button>
+      <button data-tv="volup" aria-label="Volume up">🔊</button>
+      <button data-tv="min" aria-label="Hide video">✕</button>
+    </div>
+  </div>
   <main id="stage-wrap">
     <div id="stage">
       <div id="world">

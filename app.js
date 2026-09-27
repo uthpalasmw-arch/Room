@@ -2,6 +2,7 @@ import { createStore } from './store.js';
 import { createCall } from './call.js';
 import { sfx, unlockAudio, startRing, stopRing } from './sfx.js';
 import { initKitchen, APPLIANCE_CAT } from './kitchen.js';
+import { initTV } from './tv.js';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -173,7 +174,8 @@ const TIPS = [
   ['⚡', 'Grab the ⚡ when it appears for a SUPER KICK!'],
   ['🎨', 'Decorate: furniture, photos, colors — drag anything anywhere'],
   ['✏️', 'Draw on the wall. Their drawings are protected for 1 hour 🔒'],
-  ['📺', 'Tap the TV to change channel, the lamp for lights'],
+  ['📺', 'Tap the TV to watch YouTube together, the lamp for lights'],
+  ['🧊', 'Open the fridge to save food for later — or grab a snack'],
 ];
 
 const DEFAULT_PROFILES = {
@@ -191,7 +193,7 @@ let panel = null, overlayMode = null, spaceUnsubs = [];
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let kitchen = null;
+let kitchen = null, tv = null;
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
 const lastEmote = {}, lastBonk = {}, lastKick = {}, lastLogged = {}, prevRoom = {};
@@ -395,6 +397,13 @@ async function enterRoom() {
     avatar: id => S.avatars[id], avatarEl, spawnFx,
   });
   store.on('cook', v => kitchen.onSession(v));
+  store.on('fridge', v => kitchen.setFridge(v));
+  tv = initTV({
+    $, esc, store, sfx, me: () => me, called, showCard, hideOverlay, toast, lsGet, lsSet,
+    changeChannel: () => { const t = Object.entries(S.items).find(([, i]) => i.k === 'tv'); if (t) store.update(`${sp()}/items/${t[0]}`, { ch: ((t[1].ch ?? 0) + 1) % TV_CHANNELS.length }); },
+    onChange: () => renderItems(),
+  });
+  store.on('tv', v => tv.onTv(v));
   setupCamera();
   setupStage();
   setupWallDrawing();
@@ -1016,6 +1025,7 @@ function tapItem(id) {
   const it = S.items[id]; if (!it) return;
   if (it.t === 'photo') return showPhoto(it);
   if (it.t === 'food') return kitchen.openFood(id);
+  if (it.k === 'fridge') return kitchen.openFridgeMenu();
   if (FURN[it.k]?.cook) return kitchen.openBook(APPLIANCE_CAT[it.k]);
   if (SEATS[it.k]) {
     const mine = S.avatars[me]?.seat;
@@ -1030,10 +1040,7 @@ function tapItem(id) {
     sfx.pop();
     return;
   }
-  if (it.k === 'tv') {
-    store.update(`${sp()}/items/${id}`, { ch: ((it.ch ?? 0) + 1) % TV_CHANNELS.length }); sfx.pop();
-    return;
-  }
+  if (it.k === 'tv') return tv.open();
   if (it.k === 'arcade') return openPanel('games');
   if (it.k === 'floorlamp') return toggleLights();
 }
@@ -1066,9 +1073,9 @@ function renderItems() {
       el.style.setProperty('--c', it.c || FURN[it.k]?.c);
       $('.furn', el).className = `furn k-${it.k} f-${it.face || 'front'}`;
       if (it.k === 'tv') {
-        const ch = it.ch ?? 0;
-        $('.tv', el).className = 'tv ch' + ch;
-        $('.scr span', el).textContent = TV_CHANNELS[ch];
+        const ch = it.ch ?? 0, yt = tv?.active();
+        $('.tv', el).className = yt ? 'tv chyt' : 'tv ch' + ch;
+        $('.scr span', el).textContent = yt ? '🎬' : TV_CHANNELS[ch];
       }
     }
     if (it.t === 'photo') {
@@ -1645,6 +1652,7 @@ function onCallButton() {
 // ── Global click routing ─────────────────────────────────────
 function route(d, t) {
   if (kitchen?.route(d)) return;
+  if (d.tv) return tv?.act(d.tv);
   if (d.goRoom) { hideOverlay(); return goThroughDoor(d.goRoom); }
   if ('close' in d) return closePanel();
   if (d.panel) return openPanel(d.panel);
@@ -1761,10 +1769,16 @@ document.addEventListener('change', e => {
   route({ [key]: inp.value }, inp);
 });
 
+const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv'];
+const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode));
+$('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
+
 $('#photo-input').addEventListener('change', e => { const f = e.target.files?.[0]; e.target.value = ''; addPhoto(f); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.id === 'text-input') { e.preventDefault(); addText(); }
   if (e.key === 'Enter' && e.target.id === 'join-input') $('[data-join-room]')?.click();
   if (e.key === 'Enter' && e.target.id === 'nick-input') $('[data-nick-save]')?.click();
+  if (e.key === 'Enter' && e.target.id === 'tv-url') tv?.act('start');
 });
 addEventListener('resize', () => { positionItembar(); if (emoteTarget) positionEmotebar(); });
