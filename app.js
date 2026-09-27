@@ -402,7 +402,13 @@ async function enterRoom() {
     $, esc, store, sfx, me: () => me, called, showCard, hideOverlay, toast, lsGet, lsSet,
     changeChannel: () => { const t = Object.entries(S.items).find(([, i]) => i.k === 'tv'); if (t) store.update(`${sp()}/items/${t[0]}`, { ch: ((t[1].ch ?? 0) + 1) % TV_CHANNELS.length }); },
     onChange: () => renderItems(),
+    tvScreen: () => $('#items .item[data-kind="furn:tv"] .scr'),
+    otherOnline: () => isOnline(other),
   });
+  const leaving = () => tv?.pauseIfAlone();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') leaving(); });
+  addEventListener('pagehide', leaving);
+  setTimeout(() => tv.pauseIfAlone(), 6000);
   store.on('tv', v => tv.onTv(v));
   setupCamera();
   setupStage();
@@ -546,7 +552,7 @@ function setupCamera() {
   const ptrs = new Map();
   let g = null;
   st.addEventListener('pointerdown', e => {
-    if (e.target.closest('.zoombar, .popbar')) return;
+    if (e.target.closest('.zoombar, .popbar, #tvctl, #ytwrap.big')) return;
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const r = st.getBoundingClientRect();
     if (ptrs.size === 1) g = { type: 'maybe', sx: e.clientX, sy: e.clientY, tx: cam.tx, ty: cam.ty };
@@ -965,7 +971,7 @@ function setupStage() {
   const stage = $('#stage');
   stage.addEventListener('click', e => {
     if (stage._panned) { stage._panned = false; return; }
-    if (e.target.closest('.popbar, .zoombar')) return;
+    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap')) return;
     const hadEmote = !$('#emotebar').hidden;
     const prevTarget = emoteTarget;
     hideEmotebar();
@@ -1040,7 +1046,7 @@ function tapItem(id) {
     sfx.pop();
     return;
   }
-  if (it.k === 'tv') return tv.open();
+  if (it.k === 'tv') return tv.tapTV();
   if (it.k === 'arcade') return openPanel('games');
   if (it.k === 'floorlamp') return toggleLights();
 }

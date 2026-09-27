@@ -106,7 +106,7 @@ p { margin: 6px 0; line-height: 1.4; }
 .rm-living .rug { left: calc(18 * var(--u)); width: calc(74 * var(--u)); }
 .sky { position: relative; width: 100%; height: 100%; border-radius: calc(16 * var(--u)) calc(16 * var(--u)) calc(.6 * var(--u)) calc(.6 * var(--u)); overflow: hidden; background: linear-gradient(#58b9ff, #c6ecff); transition: background 1s; }
 .sun { position: absolute; width: calc(8 * var(--u)); height: calc(8 * var(--u)); border-radius: 50%; background: #ffd23f; box-shadow: 0 0 calc(3 * var(--u)) #ffd23f; right: 20%; top: 20%; }
-.stars { position: absolute; inset: 0; opacity: 0; background-image: radial-gradient(#fff 1px, transparent 1.5px); background-size: calc(4 * var(--u)) calc(3.3 * var(--u)); transition: opacity 1s; }
+.sky .stars { position: absolute; inset: 0; opacity: 0; background-image: radial-gradient(#fff 1px, transparent 1.5px); background-size: calc(4 * var(--u)) calc(3.3 * var(--u)); transition: opacity 1s; }
 .cloud { position: absolute; left: calc(-12 * var(--u)); font-size: calc(7 * var(--u)); animation: drift 22s linear infinite; }
 .cloud.c1 { top: 55%; }
 .cloud.c2 { top: 14%; font-size: calc(5 * var(--u)); animation-delay: -11s; }
@@ -807,7 +807,7 @@ textarea.field { resize: none; min-height: 72px; }
 .result-dish { position: relative; display: inline-block; font-size: 96px; line-height: 1.1; animation: pop .5s cubic-bezier(.3,1.6,.5,1); margin-top: 6px; }
 .result-dish span { position: absolute; right: -18px; top: -4px; font-size: 40px; }
 .result-dish.burnt { filter: brightness(.3) saturate(.2); }
-.stars { font-size: 28px; letter-spacing: 4px; margin: 4px 0; }
+.rating { font-size: 28px; letter-spacing: 4px; margin: 4px 0; }
 .room-pick { display: grid; gap: 10px; margin-top: 14px; }
 .room-pick button { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 18px; background: var(--soft); font-weight: 600; font-size: 17px; text-align: left; }
 .room-pick button span { font-size: 34px; }
@@ -821,19 +821,22 @@ textarea.field { resize: none; min-height: 72px; }
 .fridge-grid button small { color: var(--muted); font-size: 10px; font-weight: 400; }
 .fridge-grid button.burnt span { filter: brightness(.3) saturate(.2); }
 .fridge-grid button:active { transform: scale(.94); }
-#tvstrip { margin: 0 8px 6px; border-radius: 14px; padding: 6px 6px 6px 12px; display: flex; align-items: center; gap: 8px; color: #fff; font-weight: 500; background: #2b2d42; box-shadow: 0 3px 0 rgba(0,0,0,.15); flex: none; animation: pop .3s; }
-#tvstrip .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
-#tvstrip button { background: #ffd60a; color: #3b2a00; font-weight: 700; border-radius: 99px; padding: 6px 12px; font-size: 13px; }
-#tvbox { margin: 0 8px 6px; border-radius: 16px; background: #15121f; color: #fff; overflow: hidden; flex: none; box-shadow: 0 4px 0 rgba(0,0,0,.2); }
-.tv-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 34dvh; background: #000; }
-.tv-frame iframe, #yt-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.tv-shield { position: absolute; inset: 0; }
-.tv-tap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #ff4d6d; color: #fff; font-weight: 700; font-size: 16px; padding: 12px 18px; border-radius: 99px; box-shadow: 0 4px 0 rgba(0,0,0,.3); animation: pulse 1.2s infinite; z-index: 2; }
-.tv-title { font-size: 12px; padding: 6px 12px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .85; }
-.tv-ctrl { display: flex; align-items: center; gap: 4px; padding: 6px 8px 8px; }
-.tv-ctrl button { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.12); font-size: 16px; flex: none; }
-.tv-ctrl button.main { background: #ff4d6d; width: 42px; height: 42px; font-size: 18px; }
-.tv-ctrl button.tv-vol { width: auto; min-width: 44px; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 600; }
-.tv-ctrl .tv-time { flex: 1; min-width: 0; font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; opacity: .85; white-space: nowrap; }
+#tvstrip { margin: 0 8px 6px; border-radius: 14px; padding: 4px 4px 4px 4px; display: flex; align-items: center; gap: 4px; color: #fff; background: #2b2d42; box-shadow: 0 3px 0 rgba(0,0,0,.15); flex: none; }
+#tvstrip button { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.14); font-size: 15px; flex: none; }
+#tvstrip button.grow { flex: 1; width: auto; min-width: 0; border-radius: 10px; background: none; text-align: left; padding: 0 8px; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ytwrap { position: absolute; left: 0; top: 0; width: 320px; height: 200px; transform-origin: 0 0; z-index: 7400; background: #000; }
+#ytwrap iframe, #yt-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
+#ytwrap.on-tv { border-radius: 6px; overflow: hidden; }
+#ytwrap.big { inset: 0; width: auto; height: auto; transform: none; z-index: 7600; }
+#ytwrap.away { opacity: .01; transform: scale(.01); pointer-events: none; }
+.tv-shield { position: absolute; inset: 0; background: transparent; z-index: 1; }
+.tv-unmute, .tv-tap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; background: #ff4d6d; color: #fff; font-weight: 700; font-size: 20px; padding: 12px 20px; border-radius: 99px; box-shadow: 0 4px 0 rgba(0,0,0,.3); white-space: nowrap; animation: pulse 1.2s infinite; }
+#ytwrap.big .tv-unmute, #ytwrap.big .tv-tap { font-size: 16px; }
+#tvctl { position: absolute; left: 8px; right: 56px; bottom: 8px; z-index: 7700; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px; border-radius: 16px; background: rgba(21,18,31,.92); color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.35); animation: pop .2s; }
+#tvctl button { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.14); font-size: 16px; flex: none; }
+#tvctl button.main { background: #ff4d6d; width: 42px; height: 42px; font-size: 18px; }
+#tvctl button.tv-vol { width: auto; min-width: 44px; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 600; }
+#tvctl button.wide { width: auto; padding: 0 12px; border-radius: 99px; font-size: 13px; font-weight: 600; }
+#tvctl .tv-time { flex: 1; min-width: 70px; font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; opacity: .85; white-space: nowrap; }
 .tv.chyt .scr { background: radial-gradient(circle at 30% 30%, #ff4d6d, #7b5cff 60%, #1a1033); }
 .tv.chyt .scr span { animation: pulse 1s infinite; }

@@ -426,7 +426,7 @@ export function initKitchen(ctx) {
       : burnt ? 'Well… it’s edible? Maybe? 😂' : stars === 3 ? 'Chef’s kiss! 👨‍🍳💋' : 'Looks tasty!';
     const canGive = !together && ctx.joined(other());
     ctx.showCard(`<div class="cook-head"><span></span><div></div><button class="x" data-serve="table" aria-label="Close">✕</button></div>
-      <div class="result-dish ${burnt ? 'burnt' : ''}">${r.e}<span>${result.top}</span></div><h2>${esc(name)}</h2><div class="stars">${starTxt}</div>
+      <div class="result-dish ${burnt ? 'burnt' : ''}">${r.e}<span>${result.top}</span></div><h2>${esc(name)}</h2><div class="rating">${starTxt}</div>
       <p class="muted">${note}</p>
       <div class="stack">
         <button class="btn wide" data-serve="eat">😋 Eat it now</button>
@@ -489,7 +489,7 @@ export function initKitchen(ctx) {
 
   const dishCard = (it, sub, buttons) => `<div class="cook-head"><span></span><div></div><button class="x" data-dismiss aria-label="Close">✕</button></div>
     <div class="result-dish ${it.burnt ? 'burnt' : ''}">${esc(it.v)}<span>${esc(it.top || '')}</span></div><h2>${esc(it.n)}</h2>
-    <div class="stars">${it.burnt ? '🖤' : '⭐'.repeat(it.q || 1)}</div><p class="muted">${sub}</p><div class="stack">${buttons}</div>`;
+    <div class="rating">${it.burnt ? '🖤' : '⭐'.repeat(it.q || 1)}</div><p class="muted">${sub}</p><div class="stack">${buttons}</div>`;
   const madeBy = it => it.by === 'both' ? 'you two 👫' : it.by === 'fridge' ? 'the shop 🛒' : it.by === me() ? 'you' : esc(ctx.called(it.by));
 
   function openFood(id) {
