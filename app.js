@@ -1,6 +1,7 @@
 import { createStore } from './store.js';
 import { createCall } from './call.js';
 import { sfx, unlockAudio, startRing, stopRing } from './sfx.js';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -21,12 +22,14 @@ const UPCT = 0.5625; // 1 room unit expressed as % of room height
 const ROOMS = {
   living: { name: 'Living room', icon: '🛋️', rest: 'sofa', w: 2 },
   bedroom: { name: 'Bedroom', icon: '🛏️', rest: 'bed', w: 1 },
+  kitchen: { name: 'Kitchen', icon: '🍳', rest: 'chair', w: 1.6 },
 };
-const NEXT_ROOM = { living: 'bedroom', bedroom: 'living' };
-const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 } };
+const ROOM_BLURB = { living: 'TV, sofa, arcade & notes board', bedroom: 'Cozy bed & fairy lights', kitchen: 'Cook, bake & make tea together' };
+const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 }, kitchen: { x: 14, y: 64 } };
 const DEFAULT_LOOK = {
   living: { wall: '#ffd6e0', wp: 'dots', floor: '#e9b872', fl: 'wood', rug: '#ff8fab', cur: '#ff5fa2' },
   bedroom: { wall: '#e4c1f9', wp: 'stars', floor: '#bdb2ff', fl: 'carpet', rug: '#ffffff', cur: '#7b5cff' },
+  kitchen: { wall: '#b8f2e6', wp: 'checks', floor: '#f4f1fb', fl: 'tiles', rug: 'none', cur: '#ffb703' },
 };
 const SEED = {
   living: {
@@ -45,6 +48,25 @@ const SEED = {
     'seed-bed': { t: 'furn', k: 'bed', x: 50, y: 92, c: '#7b5cff' },
     'seed-teddy': { t: 'emoji', v: '🧸', x: 50, y: 90, z: 960 },
     'seed-bean': { t: 'furn', k: 'beanbag', x: 84, y: 76, c: '#ff5fa2' },
+  },
+  kitchen: {
+    'seed-wcab1': { t: 'furn', k: 'wcabinet', x: 30, y: 30, c: '#90dbf4' },
+    'seed-wcab2': { t: 'furn', k: 'wcabinet', x: 134, y: 30, c: '#90dbf4' },
+    'seed-fridge': { t: 'furn', k: 'fridge', x: 36, y: 63, c: '#eef4ff' },
+    'seed-counter1': { t: 'furn', k: 'counter', x: 58, y: 63, c: '#90dbf4' },
+    'seed-sink': { t: 'furn', k: 'sink', x: 80, y: 63, c: '#90dbf4' },
+    'seed-stove': { t: 'furn', k: 'stove', x: 103, y: 63, c: '#f4f1fb' },
+    'seed-counter2': { t: 'furn', k: 'counter', x: 126, y: 63, c: '#90dbf4' },
+    'seed-counter3': { t: 'furn', k: 'counter', x: 148, y: 63, c: '#90dbf4' },
+    'seed-toaster': { t: 'furn', k: 'toaster', x: 53, y: 51.9, c: '#ff5fa2', z: 632 },
+    'seed-blender': { t: 'furn', k: 'blender', x: 63, y: 51.9, c: '#8ac926', z: 632 },
+    'seed-kettle': { t: 'furn', k: 'kettle', x: 121, y: 51.9, c: '#ff7a59', z: 632 },
+    'seed-coffee': { t: 'furn', k: 'coffee', x: 131, y: 51.9, c: '#2b2d42', z: 632 },
+    'seed-micro': { t: 'furn', k: 'microwave', x: 148, y: 51.9, c: '#f4f1fb', z: 632 },
+    'seed-kdtable': { t: 'furn', k: 'dtable', x: 90, y: 90, c: '#c8875a' },
+    'seed-kchair1': { t: 'furn', k: 'chair', x: 72, y: 91, c: '#ff5fa2', face: 'right' },
+    'seed-kchair2': { t: 'furn', k: 'chair', x: 108, y: 91, c: '#4f8cff', face: 'left' },
+    'seed-kplant': { t: 'emoji', v: '🪴', x: 152, y: 90 },
   },
 };
 // Added when the living room grew to two screens wide.
@@ -97,6 +119,17 @@ const FURN = {
     const x = 3 + i * 9, y = 2.2 + Math.sin(i / 10 * Math.PI) * 4, col = ['#ff4d6d', '#ffd60a', '#4f8cff', '#8ac926', '#c77dff'][i % 5];
     return `<i style="left:calc(${x}% - 1.2 * var(--u));top:${ux(y)};background:${col};color:${col};animation-delay:${(i % 3) * .5}s"></i>`;
   }).join('') },
+  fridge: { label: 'Fridge', icon: '🧊', c: '#eef4ff', tap: true, cook: true, html: '<div class="body"></div><div class="line"></div><div class="h1"></div><div class="h2"></div><div class="fnote"></div>'
+    + [['#ff4d6d', 4, 12], ['#ffd60a', 9, 20], ['#4f8cff', 5, 26], ['#8ac926', 11, 8]].map(([c, x, y]) => `<div class="mag" style="background:${c};left:${ux(x)};top:${ux(y)}"></div>`).join('') },
+  counter: { label: 'Counter', icon: '🗄️', c: '#90dbf4', tap: true, cook: true, html: '<div class="cab"></div><div class="top"></div><div class="kn l"></div><div class="kn r"></div>' },
+  sink: { label: 'Sink', icon: '🚰', c: '#90dbf4', tap: true, cook: true, html: '<div class="tap"></div><div class="cab"></div><div class="top"></div><div class="basin"></div><div class="kn l"></div><div class="kn r"></div>' },
+  stove: { label: 'Stove & oven', icon: '🔥', c: '#f4f1fb', tap: true, cook: true, html: '<div class="body"></div><div class="top"></div><div class="bn b1"></div><div class="bn b2"></div><div class="knobs"></div><div class="ovw"></div><div class="kpan">🍳</div>' },
+  microwave: { label: 'Microwave', icon: '📻', c: '#f4f1fb', tap: true, cook: true, html: '<div class="body"></div><div class="win"></div><div class="pad"></div>' },
+  kettle: { label: 'Kettle', icon: '🫖', c: '#ff7a59', tap: true, cook: true, html: '<div class="handle"></div><div class="spout"></div><div class="kb"></div>' },
+  toaster: { label: 'Toaster', icon: '🍞', c: '#ff5fa2', tap: true, cook: true, html: '<div class="bread br1"></div><div class="bread br2"></div><div class="tb"></div><div class="lever"></div>' },
+  coffee: { label: 'Coffee maker', icon: '☕', c: '#2b2d42', tap: true, cook: true, html: '<div class="cb"></div><div class="recess"></div><div class="kcup"></div><div class="light"></div>' },
+  blender: { label: 'Blender', icon: '🥤', c: '#8ac926', tap: true, cook: true, html: '<div class="jar"></div><div class="lid"></div><div class="bb"></div>' },
+  wcabinet: { label: 'Wall cabinet', icon: '🗃️', c: '#90dbf4', html: '<div class="wb"></div>' + ['calc(33.3% - 2.6 * var(--u))', 'calc(33.3% + 1.4 * var(--u))', 'calc(66.6% - 2.6 * var(--u))', 'calc(66.6% + 1.4 * var(--u))'].map(l => `<div class="kn" style="left:${l}"></div>`).join('') },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
 // Where characters sit or lie on furniture: [dx, height above the item's bottom, pose] in room units
@@ -134,7 +167,8 @@ const GAMES = [
 const TIPS = [
   ['👆', 'Swipe to look around the room, pinch (or ＋/－) to zoom'],
   ['👣', 'Tap the floor to walk, tap the sofa or bed to sit or lie down'],
-  ['🚪', 'Tap the door to go to the other room'],
+  ['🚪', 'Tap the door to go to another room'],
+  ['🍳', 'In the kitchen, tap the fridge, stove or kettle to cook!'],
   ['😘', 'Tap your partner to react, poke, bonk 🏏 or give a nickname 🏷️'],
   ['⚡', 'Grab the ⚡ when it appears for a SUPER KICK!'],
   ['🎨', 'Decorate: furniture, photos, colors — drag anything anywhere'],
@@ -157,6 +191,7 @@ let panel = null, overlayMode = null, spaceUnsubs = [];
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
+let kitchen = null;
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
 const lastEmote = {}, lastBonk = {}, lastKick = {}, lastLogged = {}, prevRoom = {};
@@ -352,6 +387,14 @@ async function enterRoom() {
   store.on('log', onLog, { last: 40 });
   store.on('typing', v => { S.typing = v || {}; renderTyping(); });
 
+  kitchen = initKitchen({
+    $, esc, sfx, store, UPCT,
+    me: () => me, other: () => other, view: () => view, items: () => S.items,
+    showCard, hideOverlay, overlayMode: () => overlayMode, toast, ago,
+    together, isOnline, roomOf, called, joined, roomName: rm => ROOMS[rm]?.name || rm,
+    avatar: id => S.avatars[id], avatarEl, spawnFx,
+  });
+  store.on('cook', v => kitchen.onSession(v));
   setupCamera();
   setupStage();
   setupWallDrawing();
@@ -378,7 +421,7 @@ async function openSpace(rid) {
   $('#items').innerHTML = '';
   $('#stage').classList.remove('rm-living', 'rm-bedroom');
   $('#stage').classList.add('rm-' + rid);
-  $('.door-sign').textContent = `${ROOMS[NEXT_ROOM[rid]].icon} ${ROOMS[NEXT_ROOM[rid]].name}`;
+  $('.door-sign').textContent = '🚪 Rooms';
 
   // First visit furnishes the room; later versions add new furniture once.
   const [seeded, seedv, sofa] = await Promise.all([store.once(`${sp()}/seeded`), store.once(`${sp()}/seedv`), store.once(`${sp()}/items/seed-sofa`)]);
@@ -403,8 +446,14 @@ async function openSpace(rid) {
   renderLook(); renderAvatars(); renderPresence(); renderBoard(); renderPower();
 }
 
-async function goThroughDoor() {
-  const next = NEXT_ROOM[view];
+function showRoomPicker() {
+  const here = rm => ['a', 'b'].filter(id => (id === me || isOnline(id)) && roomOf(id) === rm && rm !== view).map(id => prof(id).face).join('');
+  showCard(`<div class="big">🚪</div><h2>Where to?</h2>
+    <div class="room-pick">${Object.entries(ROOMS).filter(([k]) => k !== view).map(([k, r]) => `<button data-go-room="${k}"><span>${r.icon}</span><div>${r.name} ${here(k)}<small>${ROOM_BLURB[k]}</small></div></button>`).join('')}</div>
+    <button class="btn ghost wide small" data-dismiss style="margin-top:12px">Stay here</button>`, 'rooms');
+}
+async function goThroughDoor(next) {
+  if (!ROOMS[next] || next === view) return;
   const door = $('#door');
   door.classList.add('open'); sfx.knock();
   store.update(`avatars/${me}`, { x: DOOR_SPOT[view].x, y: DOOR_SPOT[view].y, seat: null });
@@ -925,7 +974,7 @@ function setupStage() {
     const itemEl = e.target.closest('.item');
     if (itemEl) return tapItem(itemEl.dataset.id);
     if (e.target.closest('#board')) return openPanel('notes');
-    if (e.target.closest('#door')) return goThroughDoor();
+    if (e.target.closest('#door')) return showRoomPicker();
     if (e.target.closest('#lamp')) return toggleLights();
     if (hadEmote) return;
     const p = worldPt(e);
@@ -944,7 +993,7 @@ function setupStage() {
     selectItem(id);
     const p = worldPt(e);
     drag = { id, el, dx: p.x - it.x, dy: p.y - it.y, x: it.x, y: it.y, moved: false };
-    el.setPointerCapture(e.pointerId);
+    try { el.setPointerCapture(e.pointerId); } catch {}
   });
   layer.addEventListener('pointermove', e => {
     if (!drag) return;
@@ -966,6 +1015,8 @@ function setupStage() {
 function tapItem(id) {
   const it = S.items[id]; if (!it) return;
   if (it.t === 'photo') return showPhoto(it);
+  if (it.t === 'food') return kitchen.openFood(id);
+  if (FURN[it.k]?.cook) return kitchen.openBook(APPLIANCE_CAT[it.k]);
   if (SEATS[it.k]) {
     const mine = S.avatars[me]?.seat;
     if (mine?.id === id) {   // already sitting here → stand up in front of it
@@ -1004,11 +1055,12 @@ function renderItems() {
       el._new = true; setTimeout(() => { el._new = false; el.classList.remove('new'); }, 450);
       layer.append(el);
     }
-    const tappable = it.t === 'photo' || (it.t === 'furn' && FURN[it.k]?.tap);
+    const tappable = it.t === 'photo' || it.t === 'food' || (it.t === 'furn' && FURN[it.k]?.tap);
     el.className = ['item', it.t, tappable ? 'tap' : '', SEATS[it.k] ? 'sitable' : '', id === selectedItem ? 'sel' : '', el._new ? 'new' : ''].join(' ');
     el.style.setProperty('--s', it.s || 1);
     el.style.setProperty('--fx', it.fl ? -1 : 1);
     if (it.t === 'emoji' || it.t === 'text') el.textContent = it.v;
+    if (it.t === 'food') kitchen?.renderFood(el, it);
     if (it.t === 'text') el.style.color = it.c || '#fff';
     if (it.t === 'furn') {
       el.style.setProperty('--c', it.c || FURN[it.k]?.c);
@@ -1471,7 +1523,7 @@ function renderDecoratePanel() {
 function renderSelStrip() {
   const box = $('#sel-strip'); if (!box) return;
   const it = selectedItem && S.items[selectedItem];
-  if (!it || it.t === 'emoji') { box.hidden = true; return; }
+  if (!it || it.t === 'emoji' || it.t === 'food') { box.hidden = true; return; }
   box.hidden = false;
   if (it.t === 'photo') {
     box.innerHTML = `<h4>Frame</h4><div class="chips">${FRAMES.map(f => `<button class="chip ${f === (it.f || 'wood') ? 'on' : ''}" data-item-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div>`;
@@ -1592,6 +1644,8 @@ function onCallButton() {
 
 // ── Global click routing ─────────────────────────────────────
 function route(d, t) {
+  if (kitchen?.route(d)) return;
+  if (d.goRoom) { hideOverlay(); return goThroughDoor(d.goRoom); }
   if ('close' in d) return closePanel();
   if (d.panel) return openPanel(d.panel);
   if (d.action === 'call') return onCallButton();
