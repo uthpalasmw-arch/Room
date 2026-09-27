@@ -3,6 +3,7 @@ import { createCall } from './call.js';
 import { sfx, unlockAudio, startRing, stopRing } from './sfx.js';
 import { initKitchen, APPLIANCE_CAT } from './kitchen.js';
 import { initTV } from './tv.js';
+import { initGames } from './games.js';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -24,13 +25,15 @@ const ROOMS = {
   living: { name: 'Living room', icon: '🛋️', rest: 'sofa', w: 2 },
   bedroom: { name: 'Bedroom', icon: '🛏️', rest: 'bed', w: 1 },
   kitchen: { name: 'Kitchen', icon: '🍳', rest: 'chair', w: 1.6 },
+  garden: { name: 'Garden', icon: '🌷', rest: 'gbench', w: 1.6 },
 };
-const ROOM_BLURB = { living: 'TV, sofa, arcade & notes board', bedroom: 'Cozy bed & fairy lights', kitchen: 'Cook, bake & make tea together' };
-const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 }, kitchen: { x: 14, y: 64 } };
+const ROOM_BLURB = { living: 'TV, sofa, arcade & notes board', bedroom: 'Cozy bed & fairy lights', kitchen: 'Cook, bake & make tea together', garden: 'Flowers, swing, pond & butterflies' };
+const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 }, kitchen: { x: 14, y: 64 }, garden: { x: 14, y: 64 } };
 const DEFAULT_LOOK = {
   living: { wall: '#ffd6e0', wp: 'dots', floor: '#e9b872', fl: 'wood', rug: '#ff8fab', cur: '#ff5fa2' },
   bedroom: { wall: '#e4c1f9', wp: 'stars', floor: '#bdb2ff', fl: 'carpet', rug: '#ffffff', cur: '#7b5cff' },
   kitchen: { wall: '#b8f2e6', wp: 'checks', floor: '#f4f1fb', fl: 'tiles', rug: 'none', cur: '#ffb703' },
+  garden: { wall: '#8fd3ff', wp: 'none', floor: '#8ac926', fl: 'grass', rug: 'none', cur: 'none' },
 };
 const SEED = {
   living: {
@@ -68,6 +71,18 @@ const SEED = {
     'seed-kchair1': { t: 'furn', k: 'chair', x: 72, y: 91, c: '#ff5fa2', face: 'right' },
     'seed-kchair2': { t: 'furn', k: 'chair', x: 108, y: 91, c: '#4f8cff', face: 'left' },
     'seed-kplant': { t: 'emoji', v: '🪴', x: 152, y: 90 },
+  },
+  garden: {
+    'seed-gtree': { t: 'furn', k: 'tree', x: 134, y: 70, c: '#6cc24a' },
+    'seed-swing': { t: 'furn', k: 'swing', x: 48, y: 78, c: '#ff5fa2' },
+    'seed-gbench': { t: 'furn', k: 'gbench', x: 94, y: 68, c: '#c8875a' },
+    'seed-pond': { t: 'furn', k: 'pond', x: 100, y: 93, c: '#4fc3f7' },
+    'seed-bed1': { t: 'furn', k: 'flowerbed', x: 26, y: 95, c: '#8d5a3b' },
+    'seed-bed2': { t: 'furn', k: 'flowerbed', x: 140, y: 96, c: '#8d5a3b' },
+    'seed-bfly1': { t: 'emoji', v: '🦋', x: 70, y: 40 },
+    'seed-bfly2': { t: 'emoji', v: '🦋', x: 116, y: 55 },
+    'seed-bee': { t: 'emoji', v: '🐝', x: 30, y: 80 },
+    'seed-mush': { t: 'emoji', v: '🍄', x: 154, y: 82 },
   },
 };
 // Added when the living room grew to two screens wide.
@@ -131,6 +146,12 @@ const FURN = {
   coffee: { label: 'Coffee maker', icon: '☕', c: '#2b2d42', tap: true, cook: true, html: '<div class="cb"></div><div class="recess"></div><div class="kcup"></div><div class="light"></div>' },
   blender: { label: 'Blender', icon: '🥤', c: '#8ac926', tap: true, cook: true, html: '<div class="jar"></div><div class="lid"></div><div class="bb"></div>' },
   wcabinet: { label: 'Wall cabinet', icon: '🗃️', c: '#90dbf4', html: '<div class="wb"></div>' + ['calc(33.3% - 2.6 * var(--u))', 'calc(33.3% + 1.4 * var(--u))', 'calc(66.6% - 2.6 * var(--u))', 'calc(66.6% + 1.4 * var(--u))'].map(l => `<div class="kn" style="left:${l}"></div>`).join('') },
+  tree: { label: 'Apple tree', icon: '🌳', c: '#6cc24a', html: '<div class="trunk"></div><div class="leaf l1"></div><div class="leaf l2"></div><div class="leaf l3"></div>'
+    + [[10, 14], [22, 8], [30, 18], [16, 24]].map(([x, y]) => `<div class="apple" style="left:${ux(x)};top:${ux(y)}">🍎</div>`).join('') },
+  swing: { label: 'Swing', icon: '🎠', c: '#ff5fa2', html: '<div class="post p1"></div><div class="post p2"></div><div class="post p3"></div><div class="post p4"></div><div class="bar"></div><div class="hang"><div class="rope r1"></div><div class="rope r2"></div><div class="plank"></div></div>' },
+  gbench: { label: 'Garden bench', icon: '🪵', c: '#c8875a', html: '<div class="bk"></div><div class="st"></div><div class="lg l1"></div><div class="lg l2"></div>' },
+  pond: { label: 'Pond', icon: '🦆', c: '#4fc3f7', html: '<div class="water"><span class="duck">🦆</span><span class="fish">🐟</span><i class="pad a"></i><i class="pad b"></i></div>' },
+  flowerbed: { label: 'Flower bed', icon: '🌷', c: '#8d5a3b', tap: true, html: '<div class="soil"></div>' + [0, 1, 2, 3].map(i => `<span class="plot" data-plot="${i}"></span>`).join('') },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
 // Where characters sit or lie on furniture: [dx, height above the item's bottom, pose] in room units
@@ -139,6 +160,8 @@ const SEATS = {
   chair: { front: [[0, 7, 'sit']], back: [[0, 9, 'back']], left: [[-1, 7, 'sit']], right: [[1, 7, 'sit']] },
   bed: { front: [[-10, 13, 'lie'], [10, 13, 'lie']] },
   beanbag: { front: [[0, 5, 'sit']] },
+  swing: { front: [[-6, 10, 'swing'], [6, 10, 'swing']] },
+  gbench: { front: [[-7, 6.5, 'sit'], [7, 6.5, 'sit']] },
 };
 const TURNABLE = { sofa: ['front', 'back', 'left', 'right'], chair: ['front', 'back', 'left', 'right'] };
 const TV_CHANNELS = ['', '🐠', '💕', '⚽', ''];
@@ -157,6 +180,11 @@ const ERASER_R = { 5: 18, 11: 30, 22: 50 };
 const QUICK = ['❤️', '😂', '😘', '🥰', '😭', '👍', '🔥', '🤗', '🙈', '😴'];
 const NICK_IDEAS = ['Honey Bun 🍯', 'Cutie Pie 🥧', 'Sweetie 🍬', 'Baby 🍼', 'Sunshine ☀️', 'Teddy 🧸', 'Pumpkin 🎃', 'Mr. Grumpy 😤', 'Sleepyhead 😴', 'My Love ❤️'];
 const MAX_PHOTOS = 15;
+const MOODS = [['😊', 'Happy'], ['😍', 'In love'], ['🥺', 'Missing you'], ['😴', 'Sleepy'], ['🤒', 'Not well'], ['😤', 'Grumpy'], ['🥳', 'Excited'], ['📚', 'Busy'],
+  ['😢', 'Sad'], ['🤗', 'Need a hug'], ['🍕', 'Hungry'], ['😌', 'Relaxed'], ['💼', 'At work'], ['🏃', 'Out & about'], ['🤯', 'Stressed'], ['🥰', 'Cozy']];
+const FLYERS = ['🦋', '🐝', '🕊️'];
+const FLOWERS = [['🌷', 'Tulip'], ['🌹', 'Rose'], ['🌻', 'Sunflower'], ['🌼', 'Daisy'], ['🌸', 'Blossom'], ['🌺', 'Hibiscus']];
+const GROW = { sprout: 6 * 3600000, bud: 24 * 3600000, bloom: 48 * 3600000, thirsty: 48 * 3600000 };
 const POWER_MS = 20000, SPAWN_MS = 25000;
 const GAMES = [
   ['🍕', 'Last Slice', 'Reflex duel — grab the pizza first. Fair even with lag!'],
@@ -176,6 +204,9 @@ const TIPS = [
   ['✏️', 'Draw on the wall. Their drawings are protected for 1 hour 🔒'],
   ['📺', 'Tap the TV to watch YouTube together, the lamp for lights'],
   ['🧊', 'Open the fridge to save food for later — or grab a snack'],
+  ['🌷', 'Plant flowers in the garden — water them and they bloom in 2 days'],
+  ['😊', 'Tap yourself → 😊 to set your mood'],
+  ['♟️', 'Play chess or Doodle Duel from the 🕹️ Games button'],
 ];
 
 const DEFAULT_PROFILES = {
@@ -187,13 +218,14 @@ const ONLINE_WINDOW = 45000;
 const REACH = 26;
 
 // ── State ────────────────────────────────────────────────────
-const S = { look: {}, profiles: {}, nicks: {}, presence: {}, avatars: {}, items: {}, strokes: {}, notes: {}, msgs: [], typing: {}, power: null };
+const S = { garden: {}, look: {}, profiles: {}, nicks: {}, presence: {}, avatars: {}, items: {}, strokes: {}, notes: {}, msgs: [], typing: {}, power: null };
 let store, roomId, me, other, call, view = 'living';
 let panel = null, overlayMode = null, spaceUnsubs = [];
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let kitchen = null, tv = null;
+let kitchen = null, tv = null, games = null;
+const prevMood = {};
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
 const lastEmote = {}, lastBonk = {}, lastKick = {}, lastLogged = {}, prevRoom = {};
@@ -275,6 +307,11 @@ async function boot() {
   me = q.get('me') || lsGet(`ourroom:me:${roomId}`);
   store.on('profiles', v => {
     S.profiles = v || {};
+    if (other) {
+      const m = S.profiles[other]?.mood, key = m ? m.ts : 0;
+      if (prevMood[other] !== undefined && key !== prevMood[other] && m) toast(`${esc(prof(other).face)} <b>${esc(called(other))}</b> is feeling ${esc(m.e)} ${esc(m.t || '')}`);
+      prevMood[other] = key;
+    }
     if (other) { renderPresence(); renderAvatars(); renderBoard(); }
     if (overlayMode === 'welcome') showWelcome();
   });
@@ -410,6 +447,17 @@ async function enterRoom() {
   addEventListener('pagehide', leaving);
   setTimeout(() => tv.pauseIfAlone(), 6000);
   store.on('tv', v => tv.onTv(v));
+  games = initGames({
+    $, esc, store, sfx, me: () => me, other: () => other, called, together: () => isOnline(other), overlayMode: () => overlayMode,
+    showCard, hideOverlay, toast, logAct, face: id => prof(id).face,
+    refreshGames: () => { if (panel === 'games') renderGamesPanel(); },
+    sitForGame,
+  });
+  store.on('chess', v => games.onChess(v));
+  store.on('doodle', v => games.onDoodle(v));
+  store.on('doodleInk', v => games.onInk(v));
+  store.on('garden', v => { S.garden = v || {}; $$('.item[data-kind="furn:flowerbed"]').forEach(renderBed); if (overlayMode === 'bed') showBed(openBedId); });
+  setInterval(flyAround, 2600);
   setupCamera();
   setupStage();
   setupWallDrawing();
@@ -609,10 +657,11 @@ function renderPresence() {
   if (!other) return;
   const mp = prof(me), op = prof(other), on = isOnline(other), rm = ROOMS[roomOf(other)];
   const myNick = nick(me);
-  $('#pill-me').innerHTML = `<span class="pface" style="--c:${esc(mp.color)}">${esc(mp.face)}</span><span class="pinfo"><b>${esc(myNick || mp.name)}</b><small>${ROOMS[view].icon} ${ROOMS[view].name}</small></span>`;
+  const moodTxt = m => m?.e ? `${esc(m.e)} ${esc(m.t || MOODS.find(x => x[0] === m.e)?.[1] || '')}` : '';
+  $('#pill-me').innerHTML = `<span class="pface" style="--c:${esc(mp.color)}">${esc(mp.face)}</span><span class="pinfo"><b>${esc(myNick || mp.name)}</b><small>${mp.mood?.e ? moodTxt(mp.mood) : `${ROOMS[view].icon} ${ROOMS[view].name}`}</small></span>`;
   const status = !joined(other) ? 'Hasn’t joined yet — send the link!'
     : on ? `<i class="dot on"></i>${roomOf(other) === view ? 'Here with you' : `In the ${rm.name.toLowerCase()} ${rm.icon}`}` : `<i class="dot"></i>Away · ${ago(S.presence[other]?.ts)}`;
-  const tz = op.tz ? ` · 🕒 ${esc(localTime(op.tz))}` : '';
+  const tz = (op.mood?.e ? ` · ${moodTxt(op.mood)}` : '') + (op.tz ? ` · 🕒 ${esc(localTime(op.tz))}` : '');
   $('#pill-other').innerHTML = `<span class="pface" style="--c:${esc(op.color)}">${esc(op.face)}</span><span class="pinfo"><b>${esc(joined(other) ? called(other) : 'Your partner')}</b><small>${status}${joined(other) ? tz : ''}</small></span>`;
   $$('.k-arcade').forEach(a => a.closest('.item')?.classList.toggle('ready', on));
 }
@@ -637,6 +686,8 @@ function renderWindow() {
   const w = $('#window');
   w.classList.toggle('night', h >= 19 || h < 6);
   w.classList.toggle('dusk', h >= 17 && h < 19);
+  $('#stage').classList.toggle('night', h >= 19 || h < 6);
+  $('#stage').classList.toggle('dusk', h >= 17 && h < 19);
 }
 function toggleLights() {
   const off = look().lights !== false;
@@ -698,7 +749,7 @@ function renderAvatars() {
     if (!el) {
       el = document.createElement('div');
       el.className = 'avatar'; el.dataset.id = id;
-      el.innerHTML = '<div class="bubble"></div><div class="body"><span class="face"></span><span class="hat"></span><span class="zzz">💤</span><span class="blanket"></span></div><div class="tag"><b></b><small></small></div>';
+      el.innerHTML = '<div class="bubble"></div><div class="body"><span class="face"></span><span class="hat"></span><span class="zzz">💤</span><span class="blanket"></span><span class="mood"></span></div><div class="tag"><b></b><small></small></div>';
       layer.append(el);
     }
     const online = id === me || isOnline(id);
@@ -717,7 +768,8 @@ function renderAvatars() {
       el.style.top = pos.y + '%';
       el.style.zIndex = seat ? seat.z : Math.round(pos.y * 10) + 1;
     }
-    ['sit', 'back', 'lie'].forEach(c => el.classList.toggle(c, seat?.pose === c));
+    ['sit', 'back', 'lie', 'swing'].forEach(c => el.classList.toggle(c, seat?.pose === c));
+    const mood = $('.mood', el); mood.textContent = p.mood?.e || ''; mood.hidden = !p.mood?.e;
     if (seat?.blanket) el.style.setProperty('--blanket', seat.blanket);
     el.style.setProperty('--c', p.color);
     if (!el._bonked) $('.face', el).textContent = p.face;
@@ -899,7 +951,7 @@ function sendEmote(e) {
 function openEmotebar(target) {
   emoteTarget = target;
   const bar = $('#emotebar');
-  const extra = target === me ? '' :
+  const extra = target === me ? `<button data-mood-open aria-label="Set my mood">🙂</button>` :
     (powered(me) ? `<button data-kick="${target}" aria-label="Super kick" style="font-size:calc(7 * var(--u))">🦶</button>` : '') +
     `<button data-bonk="${target}" aria-label="Bonk">🏏</button><button data-nick-open aria-label="Nickname">🏷️</button>`;
   bar.innerHTML = extra + EMOTES.map(e => `<button data-emote="${e}">${e}</button>`).join('');
@@ -1048,6 +1100,7 @@ function tapItem(id) {
   }
   if (it.k === 'tv') return tv.tapTV();
   if (it.k === 'arcade') return openPanel('games');
+  if (it.k === 'flowerbed') return showBed(id);
   if (it.k === 'floorlamp') return toggleLights();
 }
 
@@ -1073,6 +1126,9 @@ function renderItems() {
     el.style.setProperty('--s', it.s || 1);
     el.style.setProperty('--fx', it.fl ? -1 : 1);
     if (it.t === 'emoji' || it.t === 'text') el.textContent = it.v;
+    const flyer = it.t === 'emoji' && FLYERS.includes(it.v);
+    el.classList.toggle('flyer', flyer);
+    if (it.k === 'flowerbed') renderBed(el);
     if (it.t === 'food') kitchen?.renderFood(el, it);
     if (it.t === 'text') el.style.color = it.c || '#fff';
     if (it.t === 'furn') {
@@ -1095,9 +1151,9 @@ function renderItems() {
         positionItembar();
       });
     }
-    if (drag?.id !== id) {
+    if (drag?.id !== id && !(flyer && el._flying && panel !== 'decorate')) {
       el.style.left = ux(it.x); el.style.top = it.y + '%';
-      el.style.zIndex = itemZ(it);
+      el.style.zIndex = flyer ? 3500 : itemZ(it);
     }
   }
   $$('.item', layer).forEach(el => { if (!seen.has(el.dataset.id)) el.remove(); });
@@ -1596,8 +1652,9 @@ function renderGamesPanel() {
   const both = isOnline(other);
   $('#dock').innerHTML = head('🕹️ Game corner', 'Play together when you’re both home') +
     `<div class="panel-body">
-      <div class="status ${both ? 'ok' : 'wait'}">${both ? `🎉 You’re both here! Games are on the way…` : `⏳ Waiting for ${esc(called(other))} to come home`}</div>
-      ${GAMES.map(([i, n, d]) => `<div class="game"><div class="gi">${i}</div><div><b>${n}<span class="soon">SOON</span></b><p>${d}</p></div></div>`).join('')}
+      <div class="status ${both ? 'ok' : 'wait'}">${both ? '🎉 You’re both home — pick a game!' : `♟️ Chess works anytime · 🎨 Doodle Duel needs ${esc(called(other))} home`}</div>
+      ${games.list().map(g => `<button class="game play" data-game="${g.id}"><div class="gi">${g.icon}</div><div><b>${g.name}</b><p>${esc(g.desc)}</p></div><span class="go">▶</span></button>`).join('')}
+      ${GAMES.filter(([, n]) => !['Doodle Duel'].includes(n)).map(([i, n, d]) => `<div class="game"><div class="gi">${i}</div><div><b>${n}<span class="soon">SOON</span></b><p>${d}</p></div></div>`).join('')}
     </div>`;
 }
 
@@ -1606,6 +1663,8 @@ function renderProfilePanel() {
   $('#dock').innerHTML = head('🙂 You') +
     `<div class="panel-body" id="profile-body">
       ${theirNick ? `<div class="status ok">💕 ${esc(prof(other).name)} calls you <b>${esc(theirNick)}</b></div>` : ''}
+      <h4>Mood</h4>
+      <button class="btn ghost wide small" data-mood-open>${prof(me).mood?.e ? `${esc(prof(me).mood.e)} ${esc(prof(me).mood.t || '')} — change` : '🙂 Set your mood'}</button>
       ${profileForm(me)}
       <button class="btn wide" style="margin-top:16px" data-save-profile>Save</button>
       <h4 style="margin-top:22px">Nickname for ${esc(prof(other).name)}</h4>
@@ -1655,10 +1714,145 @@ function onCallButton() {
   call.start();
 }
 
+// ── 😊 Mood ─────────────────────────────────────────────────
+function showMood() {
+  const m = prof(me).mood;
+  showCard(`<div class="big">${esc(m?.e || '🙂')}</div><h2>How are you feeling?</h2>
+    <div class="faces" style="margin-top:12px">${MOODS.map(([e, l]) => `<button class="face-opt ${m?.e === e ? 'on' : ''}" data-mood-pick="${e}" title="${l}">${e}</button>`).join('')}</div>
+    <input class="field" id="mood-text" maxlength="40" value="${esc(m?.t || '')}" placeholder="Add a few words (optional) — e.g. exam today 😭" style="margin-top:12px">
+    <div class="row" style="justify-content:center;margin-top:14px">${m ? '<button class="btn ghost" data-mood-clear>Clear</button>' : ''}<button class="btn" data-mood-save>Save 💕</button></div>`, 'mood');
+}
+
+// ── 🦋 Butterflies & friends flutter around their room ──────
+function flyAround() {
+  $$('#items .item.flyer').forEach(el => {
+    if (panel === 'decorate' || document.hidden) { if (el._flying) { el._flying = false; el.style.transition = ''; renderItems(); } return; }
+    const it = S.items[el.dataset.id]; if (!it) return;
+    const x0 = el._fx ?? it.x, y0 = el._fy ?? it.y;
+    const x = clamp(x0 + rand(-28, 28), 4, roomW() - 4), y = clamp(y0 + rand(-14, 14), 8, 92);
+    el._fx = x; el._fy = y; el._flying = true;
+    el.style.transition = 'left 2.5s ease-in-out, top 2.5s ease-in-out';
+    el.style.left = ux(x); el.style.top = y + '%';
+    el.style.setProperty('--fx', x < x0 ? 1 : -1);
+  });
+}
+
+// ── 🌷 Garden: flower beds that grow over real days ─────────
+let openBedId = null;
+function plantState(pl) {
+  if (!pl) return null;
+  const now = store.now(), age = now - pl.p, dry = now - (pl.w || pl.p);
+  const stage = age >= GROW.bloom ? 'bloom' : age >= GROW.bud ? 'bud' : age >= GROW.sprout ? 'sprout' : 'seed';
+  return { stage, thirsty: dry >= GROW.thirsty, flower: FLOWERS.find(f => f[0] === pl.f) || FLOWERS[0], age, dry };
+}
+const STAGE_ICON = { seed: '🟤', sprout: '🌱', bud: '🌿' };
+function renderBed(el) {
+  const id = el.dataset.id, plots = S.garden?.[id] || {};
+  $$('.plot', el).forEach(p => {
+    const st = plantState(plots[p.dataset.plot]);
+    p.textContent = !st ? '' : st.stage === 'bloom' ? (st.thirsty ? '🥀' : st.flower[0]) : STAGE_ICON[st.stage];
+    p.className = 'plot ' + (st ? `s-${st.stage}` : 'empty') + (st?.thirsty ? ' thirsty' : '');
+  });
+}
+function whenTxt(ms) { const h = Math.ceil(ms / 3600000); return h >= 24 ? `~${Math.round(h / 24)} day${h >= 36 ? 's' : ''}` : `~${h}h`; }
+function showBed(id) {
+  openBedId = id;
+  const plots = S.garden?.[id] || {};
+  const rows = [0, 1, 2, 3].map(i => {
+    const pl = plots[i], st = plantState(pl);
+    if (!st) return `<li><span class="pi">🟫</span><div>Empty spot</div><button class="chip" data-plant-pick="${id}:${i}">🌱 Plant</button></li>`;
+    const name = st.flower[1];
+    const status = st.thirsty ? '🥀 Thirsty! Water me' : st.stage === 'bloom' ? '🌸 In bloom!' : `${st.stage === 'seed' ? 'Seed' : st.stage === 'sprout' ? 'Sprout' : 'Bud'} — blooms in ${whenTxt(GROW.bloom - st.age)}`;
+    const icon = st.stage === 'bloom' ? (st.thirsty ? '🥀' : st.flower[0]) : STAGE_ICON[st.stage];
+    return `<li><span class="pi">${icon}</span><div>${name}<small>${status} · planted by ${esc(called(pl.by))}</small></div>${st.stage === 'bloom' && !st.thirsty ? `<button class="chip" data-pick-flower="${id}:${i}">💐 Pick</button>` : ''}</li>`;
+  }).join('');
+  showCard(`<div class="cook-head"><span class="dish">🌷</span><div><b>Flower bed</b><small>Water every 2 days · blooms after 2 days</small></div><button class="x" data-dismiss aria-label="Close">✕</button></div>
+    <ul class="bed-list">${rows}</ul>
+    <button class="btn wide" data-water="${id}">💧 Water the flowers</button>`, 'bed');
+}
+function showPlantChoice(bed, i) {
+  showCard(`<div class="big">🌱</div><h2>What shall we plant?</h2>
+    <div class="choose-grid" style="width:100%;margin-top:12px">${FLOWERS.map(([e, n]) => `<button data-plant="${bed}:${i}:${e}"><span>${e}</span>${n}</button>`).join('')}</div>
+    <button class="btn ghost wide small" data-dismiss style="margin-top:12px">Cancel</button>`, 'bouquet');
+}
+function plantFlower(v) {
+  const [bed, i, e] = v.split(':');
+  const now = store.now();
+  store.set(`garden/${bed}/${i}`, { f: e, p: now, w: now, by: me });
+  const name = FLOWERS.find(f => f[0] === e)?.[1] || 'flower';
+  logAct('plant', `planted a ${name.toLowerCase()} ${e} in the garden 🌱`);
+  sfx.pop(); showBed(bed);
+}
+function waterBed(bed) {
+  const plots = S.garden?.[bed] || {};
+  if (!Object.keys(plots).length) return toast('Plant something first 🌱');
+  const now = store.now();
+  store.update(`garden/${bed}`, Object.fromEntries(Object.keys(plots).map(i => [`${i}/w`, now])));
+  const el = $(`#items [data-id="${bed}"]`), it = S.items[bed];
+  hideOverlay();
+  if (it) { spawnFx('🚿', it.x - 8, it.y, 16, 'float'); for (let k = 0; k < 6; k++) setTimeout(() => spawnFx('💧', it.x + rand(-12, 12), it.y, 8, 'drop'), k * 120); }
+  logAct('water', 'watered the flowers 💧');
+  sfx.pour();
+}
+let picked = null;
+function pickFlower(v) {
+  const [bed, i] = v.split(':');
+  const pl = S.garden?.[bed]?.[i]; if (!pl) return;
+  const fl = FLOWERS.find(f => f[0] === pl.f) || FLOWERS[0];
+  store.remove(`garden/${bed}/${i}`);
+  picked = fl;
+  sfx.yay();
+  showCard(`<div class="result-dish">💐<span>${fl[0]}</span></div><h2>You picked a ${fl[1].toLowerCase()}!</h2>
+    <div class="stack" style="margin-top:12px">
+      ${joined(other) ? `<button class="btn wide" data-bouquet="give">💝 Give it to ${esc(called(other))}</button>` : ''}
+      <button class="btn ghost wide" data-bouquet="vase">🏺 Put it in a vase in the living room</button>
+      <button class="btn ghost wide" data-bouquet="here">🌷 Put it down here</button>
+    </div>`, 'bouquet');
+}
+function placeBouquet(how) {
+  const fl = picked; hideOverlay(); if (!fl) return;
+  picked = null;
+  const now = store.now();
+  if (how === 'give') {
+    const rm = isOnline(other) ? roomOf(other) : 'living';
+    const a = S.avatars[other] || { x: 60, y: 80 };
+    const x = rm === roomOf(other) ? a.x + rand(-8, 8) : rand(40, 120);
+    store.push(`spaces/${rm}/items`, { t: 'emoji', v: '💐', s: 0.8, x: +clamp(x, 8, (ROOMS[rm].w || 1) * 100 - 8).toFixed(1), y: +clamp((a.y || 80) + 2, 62, 96).toFixed(1), by: me, ts: now });
+    store.push('log', { by: me, text: `picked you a ${fl[1].toLowerCase()} ${fl[0]} from the garden 💐`, ts: now });
+    return toast(`💐 Sent to ${esc(called(other))}!`);
+  }
+  const rm = how === 'vase' ? 'living' : view;
+  store.push(`spaces/${rm}/items`, { t: 'emoji', v: '💐', s: 0.8, x: how === 'vase' ? +rand(70, 100).toFixed(1) : +clamp(S.avatars[me]?.x ?? 50, 8, roomW() - 8).toFixed(1), y: how === 'vase' ? 60 : +clamp((S.avatars[me]?.y ?? 80) + 2, 62, 96).toFixed(1), by: me, ts: now });
+  toast(how === 'vase' ? '🏺 Your flowers are in the living room' : '💐 Put down here');
+}
+
+// ♟️ sit at a table when a game starts (if there's a free chair here)
+function sitForGame() {
+  if (S.avatars[me]?.seat) return;
+  const chair = Object.entries(S.items).find(([id, i]) => i.k === 'chair' && freeSeat(id) >= 0);
+  if (!chair) return;
+  const pos = seatPos(chair[0], 0);
+  store.update(`avatars/${me}`, { seat: { id: chair[0], i: 0 }, x: pos.x, y: pos.y });
+}
+
 // ── Global click routing ─────────────────────────────────────
 function route(d, t) {
   if (kitchen?.route(d)) return;
   if (d.tv) return tv?.act(d.tv);
+  if (games?.route(d, t)) return;
+  if ('moodOpen' in d) { hideEmotebar(); return showMood(); }
+  if (d.moodPick) { $$('[data-mood-pick]').forEach(x => x.classList.toggle('on', x === t)); return; }
+  if ('moodSave' in d || 'moodClear' in d) {
+    const e = $('[data-mood-pick].on')?.dataset.moodPick;
+    const txt = ($('#mood-text')?.value || '').trim().slice(0, 40);
+    store.update(`profiles/${me}`, { mood: 'moodClear' in d || !e ? null : { e, t: txt || null, ts: store.now() } });
+    hideOverlay(); sfx.pop(); if (panel === 'profile') renderProfilePanel(); return;
+  }
+  if (d.plant) return plantFlower(d.plant);
+  if (d.plantPick) { const [bed, i] = d.plantPick.split(':'); return showPlantChoice(bed, +i); }
+  if (d.water) return waterBed(d.water);
+  if (d.pickFlower) return pickFlower(d.pickFlower);
+  if (d.bouquet) return placeBouquet(d.bouquet);
   if (d.goRoom) { hideOverlay(); return goThroughDoor(d.goRoom); }
   if ('close' in d) return closePanel();
   if (d.panel) return openPanel(d.panel);
@@ -1775,7 +1969,7 @@ document.addEventListener('change', e => {
   route({ [key]: inp.value }, inp);
 });
 
-const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv'];
+const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv', 'mood', 'bed', 'bouquet', 'chess', 'doodle'];
 const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode));
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
