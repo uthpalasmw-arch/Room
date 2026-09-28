@@ -1,7 +1,7 @@
 // 🎬 The beach billboard: real movie posters (TMDB) from both of your countries, famous local food spots,
 // and festival boards. It changes every 30 minutes, the same on both phones.
-import { CONFIG } from './config.js?v=23';
-import { activeEvents, EVENTS } from './seasons.js?v=23';
+import { CONFIG } from './config.js?v=24';
+import { activeEvents, EVENTS } from './seasons.js?v=24';
 
 const SLOT_MS = 30 * 60000;
 const CACHE_MS = 6 * 3600000;
@@ -57,7 +57,7 @@ const FOOD = {
 export function initBillboard(ctx) {
   const { $, esc } = ctx;
   let movies = [];          // [{ title, poster, date, overview, country }]
-  let loading = false, lastKey = '';
+  let loading = false, lastKey = '', status = 'Loading movies…', retryAt = 0;
 
   const countries = () => [...new Set(['a', 'b'].map(id => countryOf(ctx.tzOf(id))).filter(Boolean))].sort();
 
@@ -68,21 +68,22 @@ export function initBillboard(ctx) {
     const ck = cs.join(',');
     try {
       const cached = JSON.parse(ctx.lsGet('ourroom:movies') || 'null');
-      if (cached && cached.k === ck && Date.now() - cached.t < CACHE_MS) { movies = cached.m; lastKey = ck; return; }
+      if (cached && cached.k === ck && cached.m?.length && Date.now() - cached.t < CACHE_MS) { movies = cached.m; lastKey = ck; status = `🎬 ${movies.length} movies from ${cs.map(cname).join(' & ')}`; render(); return; }
     } catch {}
     loading = true;
     try {
       const all = [];
       for (const c of cs) {
         const [up, now] = await Promise.all(['upcoming', 'now_playing'].map(kind =>
-          fetchJSON(`https://api.themoviedb.org/3/movie/${kind}?api_key=${encodeURIComponent(key)}&region=${c}&language=en-US&page=1`).catch(() => ({ results: [] }))));
+          fetchJSON(`https://api.themoviedb.org/3/movie/${kind}?api_key=${encodeURIComponent(key)}&region=${c}&language=en-US&page=1`).catch(e => { status = `🎬 Couldn’t reach TMDB (${e.message})`; return { results: [] }; })));
         const soon = (up.results || []).filter(m => m.poster_path && m.release_date && new Date(m.release_date) > Date.now() - 864e5);
         const pick = [...soon.slice(0, 8), ...(now.results || []).filter(m => m.poster_path).slice(0, 6)];
         for (const m of pick) if (!all.some(x => x.id === m.id && x.country === c)) all.push({ id: m.id, title: m.title, poster: `https://image.tmdb.org/t/p/w342${m.poster_path}`, date: m.release_date, overview: (m.overview || '').slice(0, 260), country: c, soon: soon.includes(m) });
       }
       movies = all; lastKey = ck;
-      ctx.lsSet('ourroom:movies', JSON.stringify({ k: ck, t: Date.now(), m: all }));
-    } catch (e) { console.warn('billboard: movies unavailable', e); }
+      if (all.length) { ctx.lsSet('ourroom:movies', JSON.stringify({ k: ck, t: Date.now(), m: all })); status = `🎬 ${all.length} movies from ${cs.map(cname).join(' & ')}`; }
+      else { retryAt = Date.now() + 10 * 60000; if (!status.includes('Couldn’t')) status = '🎬 TMDB had no movies for your countries right now'; }
+    } catch (e) { status = `🎬 Couldn’t load movies (${e.message})`; retryAt = Date.now() + 10 * 60000; }
     finally { loading = false; render(); }
   }
 
@@ -95,22 +96,26 @@ export function initBillboard(ctx) {
     activeEvents().forEach(id => list.push({ kind: 'fest', e: EVENTS[id].icon, name: `Happy ${EVENTS[id].name}!`, sub: 'From the two of you, to the two of you 💕', col: '#7b5cff' }));
     return list;
   }
+  // Stable pick for this half hour (same lists → same ad on both phones); movies 2 out of 3 times
   function current() {
     const list = ads(); if (!list.length) return null;
     const slot = Math.floor(Date.now() / SLOT_MS);
-    // stable pick for this half hour (same list → same ad on both phones)
     let h = 7; for (const c of String(slot)) h = (h * 31 + c.charCodeAt(0)) | 0;
-    return list[Math.abs(h) % list.length];
+    h = Math.abs(h);
+    const films = list.filter(a => a.kind === 'movie'), fest = list.filter(a => a.kind === 'fest'), rest = list.filter(a => a.kind !== 'movie');
+    if (fest.length && h % 5 === 0) return fest[h % fest.length];
+    if (films.length && h % 3 !== 0) return films[Math.floor(h / 3) % films.length];
+    return rest[h % rest.length] || films[h % films.length];
   }
   function render() {
     const box = document.querySelector('.bb-screen'); if (!box) return;
-    if (countries().join(',') !== lastKey && CONFIG.tmdb) loadMovies();
+    if (CONFIG.tmdb && (countries().join(',') !== lastKey || (!movies.length && Date.now() > retryAt))) loadMovies();
     const ad = current(); if (!ad) { box.innerHTML = ''; return; }
     const key = ad.kind + (ad.id || ad.name);
     if (box.dataset.k === key) return;
     box.dataset.k = key;
     box.innerHTML = ad.kind === 'movie'
-      ? `<img src="${esc(ad.poster)}" alt="${esc(ad.title)}" crossorigin="anonymous"><b class="bb-tag">${ad.soon ? 'COMING SOON' : 'NOW SHOWING'}</b>`
+      ? `<img src="${esc(ad.poster)}" alt="${esc(ad.title)}"><b class="bb-tag">${ad.soon ? 'COMING SOON' : 'NOW SHOWING'}</b>`
       : `<div class="bb-food" style="--bb:${esc(ad.col)}"><span>${ad.e}</span><b>${esc(ad.name)}</b><small>${esc(ad.sub)}</small></div>`;
   }
   function details() {
@@ -120,11 +125,11 @@ export function initBillboard(ctx) {
       ctx.showCard(`<img class="bb-poster" src="${esc(ad.poster)}" alt=""><h2>${esc(ad.title)}</h2>
         <p class="muted">${ad.soon ? `🎬 In cinemas ${esc(d)}` : '🍿 Now showing'} in ${esc(cname(ad.country))}</p>
         ${ad.overview ? `<p style="text-align:left;font-size:14px">${esc(ad.overview)}</p>` : ''}
-        <p class="muted" style="font-size:11px">Movie info from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+        <p class="muted" style="font-size:11px">${esc(status)} · Movie info from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
         <button class="btn ghost wide small" data-dismiss>Close</button>`, 'billboard');
     } else {
       ctx.showCard(`<div class="big">${ad.e}</div><h2>${esc(ad.name)}</h2><p class="muted">${esc(ad.sub)}</p>
-        ${ad.country ? `<p class="muted">📍 A favourite in ${esc(cname(ad.country))}</p>` : ''}<button class="btn ghost wide small" data-dismiss>Close</button>`, 'billboard');
+        ${ad.country ? `<p class="muted">📍 A favourite in ${esc(cname(ad.country))}</p>` : ''}<p class="muted" style="font-size:11px">${esc(status)}</p><button class="btn ghost wide small" data-dismiss>Close</button>`, 'billboard');
     }
   }
   const sceneHTML = () => `<button class="bb-board" data-billboard aria-label="Billboard"><div class="bb-frame"><div class="bb-screen"></div></div><i class="bb-leg l"></i><i class="bb-leg r"></i><i class="bb-lamp l"></i><i class="bb-lamp r"></i></button>`;

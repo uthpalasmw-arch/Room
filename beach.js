@@ -69,16 +69,26 @@ export function initBeach(ctx) {
   // ── 🏄 Surfing & 🪁 kites (shown on your character for both of you) ──
   function surf() {
     if (ctx.me() === 'v') return;
-    ctx.moveMe({ x: 40 + Math.random() * 60, y: 58, seat: null, surf: now(), pier: null, kite: null });
+    if (ctx.wet()) return ctx.toast('🌧️ Not in this weather — wait for the rain to pass', 2500);
+    const x = 40 + Math.random() * 60;
+    ctx.moveMe({ x, y: 58, seat: null, surf: now(), pier: null, kite: null });
+    ctx.focus(x, 58);
     sfx.swish();
     ctx.toast('🏄 Cowabunga! Tap “Done” at the top when you’re finished', 2500);
     ctx.logAct('surf', 'went surfing 🏄🌊');
   }
-  function kiteMenu() {
+  // 🪁 Walk over to the kite stand, pick a colour (with a preview), then fly it
+  let kitePick = KITES[0];
+  function kiteMenu(stand) {
     const cur = ctx.myAvatar()?.kite;
-    ctx.showCard(`<div class="big">🪁</div><h2>Fly a kite</h2><p class="muted">Pick a colour — it flies above you while you’re on the beach</p>
-      <div class="swatches" style="justify-content:center">${KITES.map(c => `<button class="sw" style="background:${c}" data-kite="${c}" aria-label="${c}"></button>`).join('')}</div>
-      ${cur ? '<button class="btn ghost wide small" style="margin-top:12px" data-kite="off">🪢 Done — reel it in</button>' : ''}
+    if (!cur && ctx.wet()) return ctx.toast('🌧️ Too wet and windy for a kite right now', 2500);
+    if (stand) { ctx.moveMe({ x: stand.x - 9, y: Math.min(96, stand.y + 2), seat: null, surf: null, pier: null }); ctx.focus(stand.x - 9, stand.y - 20); }
+    kitePick = cur || kitePick;
+    ctx.showCard(`<h2>🪁 Fly a kite</h2><p class="muted">Pick a colour</p>
+      <div class="bh-kiteprev" id="bh-kiteprev" style="--kite:${kitePick}"><i></i></div>
+      <div class="swatches" style="justify-content:center">${KITES.map(c => `<button class="sw ${c === kitePick ? 'on' : ''}" style="background:${c}" data-kite-pick="${c}" aria-label="${c}"></button>`).join('')}</div>
+      <button class="btn wide" style="margin-top:14px" data-kite="fly">🪁 ${cur ? 'Change colour' : 'Fly it!'}</button>
+      ${cur ? '<button class="btn ghost wide small" style="margin-top:8px" data-kite="off">🪢 Done — reel it in</button>' : ''}
       <button class="btn ghost wide small" style="margin-top:8px" data-dismiss>Close</button>`, 'kite');
   }
   // ── 🍦 Ice-cream cart ──
@@ -111,7 +121,14 @@ export function initBeach(ctx) {
     if ('ball' in d) { hitBall(); return true; }
     if ('surf' in d) { surf(); return true; }
     if ('kiteMenu' in d) { kiteMenu(); return true; }
-    if (d.kite) { ctx.hideOverlay(); ctx.moveMe({ kite: d.kite === 'off' ? null : d.kite, seat: null, surf: null }); if (d.kite !== 'off') { sfx.swish(); ctx.logAct('kite', 'is flying a kite at the beach 🪁'); ctx.toast('🪁 Up it goes! Tap “Done” at the top to reel it in', 2500); } return true; }
+    if (d.kitePick) { kitePick = d.kitePick; document.querySelectorAll('[data-kite-pick]').forEach(b => b.classList.toggle('on', b.dataset.kitePick === kitePick)); document.querySelector('#bh-kiteprev')?.style.setProperty('--kite', kitePick); return true; }
+    if (d.kite) {
+      if (d.kite === 'fly' && ctx.wet()) { ctx.hideOverlay(); ctx.toast('🌧️ Too wet and windy for a kite right now'); return true; }
+      ctx.hideOverlay();
+      const colour = d.kite === 'off' ? null : kitePick;
+      ctx.moveMe({ kite: colour, seat: null, surf: null });
+      if (colour) { const p = ctx.myPos(); ctx.focus(p.x, p.y - 22); }
+      d = { kite: colour || 'off' }; if (d.kite !== 'off') { sfx.swish(); ctx.logAct('kite', 'is flying a kite at the beach 🪁'); ctx.toast('🪁 Up it goes! Tap “Done” at the top to reel it in', 2500); } return true; }
     if ('iceMenu' in d) { iceMenu(); return true; }
     if (d.ice) { ice(+d.ice); return true; }
     return false;

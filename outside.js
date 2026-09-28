@@ -1,6 +1,6 @@
 // 🏡 Outside: the front yard (and later the beach and woods), travel rules, one shared sky, walking together.
 
-import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=23';
+import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=24';
 
 export const INDOOR = ['living', 'bedroom', 'kitchen', 'garden'];
 export const OUTDOOR = ['yard', 'beach', 'woods'];
@@ -50,7 +50,7 @@ const YARD = `
   <i class="ys-plight" style="left:calc(90 * var(--u));top:70%"></i><i class="ys-plight" style="left:calc(110 * var(--u));top:70%"></i>
   <i class="ys-plight" style="left:calc(87 * var(--u));top:84%"></i><i class="ys-plight" style="left:calc(113 * var(--u));top:84%"></i>
   <div class="ys-fence l"></div><div class="ys-fence r"></div>
-  <button class="bs-photo" data-photo-spot style="left:calc(145 * var(--u));top:calc(66% - 16 * var(--u))" aria-label="Photo spot"><b>📸</b><span>Photo spot</span></button>
+
   <button class="os-sign l" data-go="woods"><b>← 🌲 Woods</b><i></i></button>
   <button class="os-sign r" data-go="beach"><b>Beach 🏖️ →</b><i></i></button>`;
 
@@ -60,7 +60,7 @@ const BEACH = `
     <div class="bs-life"><span class="bs-ship">🚢</span><span class="bs-boat">⛵</span><span class="bs-whale"><i></i>🐋</span>
       <span class="bs-dolph"><b>🐬</b><b>🐬</b><b>🐬</b></span></div></div>
   <div class="bs-shore"><i class="w1"></i><i class="w2"></i></div>
-  <div class="bs-gulls"><span>🕊️</span><span>🕊️</span></div>
+  <div class="bs-gulls"><span><i></i><i></i></span><span><i></i><i></i></span><span><i></i><i></i></span></div>
   <div class="bs-palm p1"><i class="trunk"></i><b>🌴</b></div><div class="bs-palm p2"><i class="trunk"></i><b>🌴</b></div>
   <button class="bs-crab c1" data-crab="1">🦀</button><button class="bs-crab c2" data-crab="2">🦀</button>
   <div class="bs-shells"></div>
@@ -94,21 +94,31 @@ const REACT = { deer: 'The deer looks up at you… then trots away 🦌', rabbit
   squirrel: 'The squirrel scurries up a tree 🐿️🌲', fox: 'The fox tilts its head at you 🦊', hedgehog: 'The hedgehog curls into a ball 🦔',
   owl: 'Hoo-hoo! 🦉', bird1: 'Tweet! The bird flutters away 🐦', bird2: 'Tweet! The bird flutters away 🐦' };
 
-// 🌦️ Weather is picked from the clock, so both phones get the same rain at the same time
-function weatherAt(t = Date.now()) {
-  const block = Math.floor(t / (90 * 60000)), prev = Math.floor((t - 40 * 60000) / (90 * 60000));
-  // ❄️ Winter (Dec–Feb): snow now and then; more around Christmas; always on Christmas Day
-  const d = today(), m = d.getMonth() + 1;
+// 🌦️ Weather is picked from the clock, so both phones get the same showers at the same time.
+// Every 2-hour window may hold one shower (≈3 a day): 20–40 min of rain, sometimes a 15–25 min storm
+// in the middle, sometimes a 15-minute rainbow afterwards. In winter the showers fall as snow.
+const MIN = 60000, WIN = 120 * MIN;
+function showerIn(k) {
+  const d = new Date(k * WIN), m = d.getMonth() + 1, winter = m === 12 || m <= 2;
+  const xmasWin = (m === 12 && d.getDate() >= 10) || (m === 1 && d.getDate() <= 2);
+  const chance = winter ? (xmasWin ? 0.5 : 0.32) : 0.25;
+  if (rnd('sh' + k) >= chance) return null;
+  const dur = (20 + rnd('sd' + k) * 20) * MIN, start = k * WIN + rnd('so' + k) * (WIN - dur - 16 * MIN);
+  const storm = !winter && rnd('st' + k) < 0.35, sDur = Math.min(dur * 0.7, (15 + rnd('sl' + k) * 10) * MIN), sStart = start + (dur - sDur) / 2;
+  return { start, end: start + dur, snow: winter, storm, sStart, sEnd: sStart + sDur, bow: !winter && rnd('bw' + k) < 0.5 };
+}
+export function weatherAt(t = Date.now()) {
   if (isActive('christmas') && isChristmasDay()) return 'snow';
-  if (m === 12 || m <= 2) {
-    const chance = isActive('christmas') ? 0.5 : 0.2;
-    if (rnd('snow' + block) < chance) return 'snow';
+  const k = Math.floor(t / WIN);
+  for (const w of [showerIn(k), showerIn(k - 1)]) {
+    if (!w) continue;
+    if (t >= w.start && t < w.end) return w.snow ? 'snow' : w.storm && t >= w.sStart && t < w.sEnd ? 'storm' : 'rain';
+    if (w.bow && t >= w.end && t < w.end + 15 * MIN) return 'rainbow';
   }
-  const wet = b => rnd('rain' + b) < 0.16;
-  if (wet(block)) return rnd('storm' + block) < 0.45 ? 'storm' : 'rain';
-  if (wet(prev) && !wet(block)) return 'rainbow';
   return 'clear';
 }
+// Rain (or a storm) stops fires, kites and surfing
+export const isWet = (t = Date.now()) => ['rain', 'storm'].includes(weatherAt(t));
 
 const SHELLS = ['🐚', '🐚', '🦪', '🐚', '🪸', '🐚'];
 const dayKey = () => new Date().toISOString().slice(0, 10);
@@ -183,6 +193,7 @@ export function initOutside(ctx) {
     st.classList.toggle('wx-storm', wx === 'storm');
     st.classList.toggle('wx-snowy', wx === 'snow');
     st.classList.toggle('wx-bow', wx === 'rainbow' && phaseOf(localHour(skyTz())) !== 'night');
+    if (out && wx !== lastWx && lastWx !== null && ['rain', 'storm'].includes(wx) && !['rain', 'storm'].includes(lastWx)) ctx.onRainStart?.();
     if (out && wx !== lastWx && lastWx !== null) ctx.toast(wx === 'storm' ? '⛈️ A thunderstorm is rolling in!' : wx === 'rain' ? '🌧️ It’s starting to rain!' : wx === 'snow' ? '❄️ It’s snowing!' : wx === 'rainbow' ? '🌈 The rain stopped — look, a rainbow!' : '☀️ The sky is clearing up', 3000);
     lastWx = out ? wx : null;
     return wx;

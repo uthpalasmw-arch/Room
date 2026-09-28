@@ -1267,8 +1267,12 @@ button.game:active { transform: scale(.98); }
 .bs-palm b { position: absolute; left: 50%; bottom: calc(20 * var(--u)); transform: translateX(-50%); font-size: calc(30 * var(--u)); line-height: 1; animation: bs-sway 5s ease-in-out infinite; transform-origin: 50% 100%; }
 .bs-palm .trunk { display: none; }
 @keyframes bs-sway { 50% { transform: translateX(-50%) rotate(3deg); } }
-.bs-gulls span { position: absolute; top: 12%; font-size: calc(5 * var(--u)); left: calc(-10 * var(--u)); animation: bs-fly 26s linear infinite; }
-.bs-gulls span + span { top: 20%; font-size: calc(4 * var(--u)); animation-delay: -11s; animation-duration: 34s; }
+.bs-gulls span { position: absolute; top: 12%; left: calc(-10 * var(--u)); width: calc(7 * var(--u)); height: calc(3 * var(--u)); animation: bs-fly 26s linear infinite; }
+.bs-gulls i { position: absolute; top: 0; width: 50%; height: 100%; border-top: calc(.6 * var(--u)) solid #fff; border-radius: 50% 50% 0 0; animation: bs-flap .5s ease-in-out infinite alternate; filter: drop-shadow(0 calc(.2 * var(--u)) 0 rgba(0,0,0,.25)); }
+.bs-gulls i:first-child { left: 0; transform-origin: 100% 100%; } .bs-gulls i:last-child { right: 0; transform-origin: 0 100%; animation-direction: alternate-reverse; }
+@keyframes bs-flap { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } }
+.bs-gulls span:nth-child(3) { top: 17%; animation-delay: -18s; animation-duration: 30s; }
+.bs-gulls span:nth-child(2) { top: 22%; transform: scale(.75); animation-delay: -11s; animation-duration: 34s; }
 @keyframes bs-fly { to { left: calc(210 * var(--u)); } }
 .sky-night .bs-gulls { display: none; }
 .bs-crab { position: absolute; font-size: calc(5.5 * var(--u)); line-height: 1; transform: translate(-50%, -100%); animation: bs-scuttle 14s ease-in-out infinite; transition: opacity .3s, transform .3s; }
@@ -1557,7 +1561,7 @@ button.game:active { transform: scale(.98); }
 .bs-life { position: absolute; inset: 0; }
 .bs-life > span { position: absolute; opacity: 0; transition: opacity 1.2s, left 1s linear; line-height: 1; pointer-events: none; }
 .bs-life > span.on { opacity: 1; }
-.bs-ship { top: 4%; font-size: calc(13 * var(--u)); transform: scaleX(-1); }
+.bs-ship { top: 4%; font-size: calc(13 * var(--u)); }
 .sky-night .bs-ship { filter: brightness(.6) drop-shadow(0 0 calc(1.5 * var(--u)) #ffe066); }
 .bs-boat { top: 22%; font-size: calc(9 * var(--u)); animation: bs-rock 3s ease-in-out infinite; }
 @keyframes bs-rock { 50% { rotate: 5deg; } }
@@ -1565,7 +1569,7 @@ button.game:active { transform: scale(.98); }
 .bs-dolph b { position: absolute; bottom: 0; font-size: calc(7.5 * var(--u)); opacity: 0; }
 .bs-dolph.on b { animation: bs-jump 1.8s ease-in-out infinite; }
 .bs-dolph b:nth-child(1) { left: 0; } .bs-dolph b:nth-child(2) { left: calc(8 * var(--u)); animation-delay: .35s; } .bs-dolph b:nth-child(3) { left: calc(16 * var(--u)); animation-delay: .7s; }
-@keyframes bs-jump { 0% { transform: translateY(calc(3 * var(--u))) rotate(40deg); opacity: 0; } 15% { opacity: 1; } 50% { transform: translate(calc(4 * var(--u)), calc(-7 * var(--u))) rotate(-10deg); } 85% { opacity: 1; } 100% { transform: translate(calc(8 * var(--u)), calc(3 * var(--u))) rotate(-60deg); opacity: 0; } }
+@keyframes bs-jump { 0% { transform: translateY(calc(3 * var(--u))) rotate(-40deg); opacity: 0; } 15% { opacity: 1; } 50% { transform: translate(calc(-4 * var(--u)), calc(-7 * var(--u))) rotate(10deg); } 85% { opacity: 1; } 100% { transform: translate(calc(-8 * var(--u)), calc(3 * var(--u))) rotate(60deg); opacity: 0; } }
 .bs-whale { top: 50%; font-size: calc(8 * var(--u)); }
 .bs-whale i { position: absolute; left: 30%; bottom: 80%; width: calc(2 * var(--u)); height: calc(6 * var(--u)); background: linear-gradient(transparent, rgba(255,255,255,.9)); border-radius: 50% 50% 0 0; animation: bs-spout 2s ease-out infinite; transform-origin: 50% 100%; }
 @keyframes bs-spout { 0% { transform: scaleY(0); opacity: 1; } 60% { transform: scaleY(1.3); opacity: .9; } 100% { transform: scaleY(1.5) scaleX(2); opacity: 0; } }
@@ -1613,11 +1617,11 @@ button.game:active { transform: scale(.98); }
 .bh-letter p { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .bh-letter small { color: var(--muted); }
 .bh-for { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 12px; font-size: 14px; }
-.av-kite { display: none; position: absolute; left: 70%; top: calc(-36 * var(--u)); pointer-events: none; z-index: 5; }
+.av-kite { display: none; position: absolute; left: 80%; top: calc(-52 * var(--u)); pointer-events: none; z-index: 5; }
 .avatar.has-kite .av-kite { display: block; animation: bh-kite 3s ease-in-out infinite; }
-.av-kite i { display: block; width: calc(11 * var(--u)); height: calc(14 * var(--u)); background: var(--kite, #ff4d6d); clip-path: polygon(50% 0, 100% 40%, 50% 100%, 0 40%); box-shadow: inset 0 0 0 calc(.4 * var(--u)) rgba(0,0,0,.2); }
-.av-kite::before { content: ''; position: absolute; left: calc(5.4 * var(--u)); top: calc(13.5 * var(--u)); width: calc(.3 * var(--u)); height: calc(28 * var(--u)); background: rgba(255,255,255,.8); transform: rotate(-18deg); transform-origin: 0 0; }
-.av-kite::after { content: '🎀🎀'; position: absolute; left: calc(2 * var(--u)); top: calc(14 * var(--u)); font-size: calc(3.4 * var(--u)); letter-spacing: calc(1 * var(--u)); }
+.av-kite i { display: block; width: calc(15 * var(--u)); height: calc(19 * var(--u)); background: var(--kite, #ff4d6d); clip-path: polygon(50% 0, 100% 40%, 50% 100%, 0 40%); box-shadow: inset 0 0 0 calc(.4 * var(--u)) rgba(0,0,0,.2); }
+.av-kite::before { content: ''; position: absolute; left: calc(7.4 * var(--u)); top: calc(18.5 * var(--u)); width: calc(.35 * var(--u)); height: calc(40 * var(--u)); background: rgba(255,255,255,.8); transform: rotate(-18deg); transform-origin: 0 0; }
+.av-kite::after { content: '🎀🎀'; position: absolute; left: calc(4 * var(--u)); top: calc(19 * var(--u)); font-size: calc(3.4 * var(--u)); letter-spacing: calc(1 * var(--u)); }
 @keyframes bh-kite { 50% { transform: translate(calc(3 * var(--u)), calc(-2 * var(--u))) rotate(8deg); } }
 .avatar.surf .body { animation: bh-surf 7s ease-in-out infinite alternate; }
 .avatar.surf::after { content: ''; position: absolute; left: 0; right: 0; top: calc(15.5 * var(--u)); height: calc(2.4 * var(--u)); border-radius: 50%; background: linear-gradient(90deg, #ffd60a, #ff7a59); animation: bh-surf 7s ease-in-out infinite alternate; box-shadow: 0 calc(.6 * var(--u)) 0 rgba(255,255,255,.7); }
@@ -1770,3 +1774,8 @@ button.game:active { transform: scale(.98); }
 .sky-night .bb-lamp::after, .sky-sunset .bb-lamp::after { content: ''; position: absolute; left: 50%; top: 100%; width: calc(12 * var(--u)); height: calc(20 * var(--u)); transform: translateX(-50%); background: linear-gradient(rgba(255,240,180,.55), transparent); clip-path: polygon(35% 0, 65% 0, 100% 100%, 0 100%); pointer-events: none; }
 .sky-night .bb-leg { filter: brightness(.5); }
 .bb-poster { width: 60%; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.3); margin-top: 6px; }
+
+.av-kite i { background: conic-gradient(from 45deg, transparent 0 25%, rgba(255,255,255,.4) 0 50%, transparent 0 75%, rgba(0,0,0,.18) 0), var(--kite, #ff4d6d); }
+.bh-kiteprev { width: 90px; height: 110px; margin: 6px auto 12px; animation: bh-kite 3s ease-in-out infinite; }
+.bh-kiteprev i { display: block; width: 100%; height: 100%; clip-path: polygon(50% 0, 100% 40%, 50% 100%, 0 40%); background: conic-gradient(from 45deg, transparent 0 25%, rgba(255,255,255,.4) 0 50%, transparent 0 75%, rgba(0,0,0,.18) 0), var(--kite); }
+.it-label { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: calc(.5 * var(--u)); white-space: nowrap; font: 700 calc(2.2 * var(--u)) 'Fredoka', sans-serif; color: #fff; background: rgba(0,0,0,.5); border-radius: 99px; padding: 0 calc(1.2 * var(--u)); }

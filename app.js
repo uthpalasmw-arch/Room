@@ -1,18 +1,18 @@
-import { createStore } from './store.js?v=23';
-import { createCall } from './call.js?v=23';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=23';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=23';
-import { initTV } from './tv.js?v=23';
-import { initGames } from './games.js?v=23';
-import { initPet } from './pet.js?v=23';
-import { cropPhoto } from './dp.js?v=23';
-import { initVmail } from './vmail.js?v=23';
-import { initOutside, INDOOR } from './outside.js?v=23';
-import { initFishing } from './fishing.js?v=23';
-import { initBeach } from './beach.js?v=23';
-import { initWoods } from './woods.js?v=23';
-import { initBillboard } from './billboard.js?v=23';
-import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=23';
+import { createStore } from './store.js?v=24';
+import { createCall } from './call.js?v=24';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=24';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=24';
+import { initTV } from './tv.js?v=24';
+import { initGames } from './games.js?v=24';
+import { initPet } from './pet.js?v=24';
+import { cropPhoto } from './dp.js?v=24';
+import { initVmail } from './vmail.js?v=24';
+import { initOutside, INDOOR, isWet } from './outside.js?v=24';
+import { initFishing } from './fishing.js?v=24';
+import { initBeach } from './beach.js?v=24';
+import { initWoods } from './woods.js?v=24';
+import { initBillboard } from './billboard.js?v=24';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=24';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -244,10 +244,10 @@ Object.assign(FURN, {
   umbrella: { label: 'Beach umbrella', icon: '⛱️', c: '#ff4d6d', html: '<div class="um-top"></div><div class="um-pole"></div>' },
   lounger: { label: 'Sun lounger', icon: '🛏️', c: '#4f8cff', html: '<div class="ln-back"></div><div class="ln-bed"></div><div class="ln-leg l"></div><div class="ln-leg r"></div>' },
   tiki: { label: 'Tiki torch', icon: '🔥', c: '#8d5a3b', html: '<div class="tk-flame"></div><div class="tk-cup"></div><div class="tk-pole"></div>' },
-  surfrack: { label: 'Surfboards', icon: '🏄', c: '#2ec4b6', tap: true, html: '<div class="sr-rack"></div><div class="sr-b b1"></div><div class="sr-b b2"></div><div class="sr-b b3"></div>' },
+  surfrack: { label: 'Surfboards', icon: '🏄', c: '#2ec4b6', tap: true, html: '<div class="sr-rack"></div><div class="sr-b b1"></div><div class="sr-b b2"></div><div class="sr-b b3"></div><div class="it-label">🏄 SURF</div>' },
   kitestand: { label: 'Kite stand', icon: '🪁', c: '#ff5fa2', tap: true, html: '<div class="ks-pole"></div><div class="ks-kite"></div><div class="ks-sign">KITES</div>' },
-  bottlecrate: { label: 'Message bottles', icon: '💌', c: '#c8875a', tap: true, html: '<div class="bc-box"></div><div class="bc-b b1"></div><div class="bc-b b2"></div><div class="bc-b b3"></div>' },
-  fishspot: { label: 'Fishing spot', icon: '🎣', c: '#8d5a3b', tap: true, html: '<div class="fsp-bucket"></div><div class="fsp-rod"></div><div class="fsp-sign">🎣</div>' },
+  bottlecrate: { label: 'Message bottles', icon: '💌', c: '#c8875a', tap: true, html: '<div class="bc-box"></div><div class="bc-b b1"></div><div class="bc-b b2"></div><div class="bc-b b3"></div><div class="it-label">💌 BOTTLES</div>' },
+  fishspot: { label: 'Fishing spot', icon: '🎣', c: '#8d5a3b', tap: true, html: '<div class="fsp-bucket"></div><div class="fsp-rod"></div><div class="fsp-sign">🎣</div><div class="it-label">FISH</div>' },
   lantern: { label: 'Camp lantern', icon: '🏮', c: '#ffb703', html: '<div class="lt-handle"></div><div class="lt-glass"></div><div class="lt-base"></div>' },
   shelljar: { label: 'Shell jar', icon: '🫙', c: '#bde0fe', tap: true, html: '<div class="sj-lid"></div><div class="sj-glass"><div class="sj-fill"></div></div>' },
   shellchime: { label: 'Shell wind chime', icon: '🎐', c: '#f4d9a0', tap: true, html: '<div class="sc-bar"></div><div class="sc-str s1"></div><div class="sc-str s2"></div><div class="sc-str s3"></div><div class="sc-str s4"></div>' },
@@ -412,7 +412,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 23;
+const VERSION = 24;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -621,6 +621,12 @@ async function enterRoom() {
     sfx, logAct, color: id => prof(id).color,
     peopleHere: () => $$('.avatar').filter(a => a._x != null).map(a => ({ x: a._x, y: a._y })),
     onAnimal: id => woods?.animalCard(id), follower: id => woods?.follower(id),
+    onRainStart: () => {
+      const a = S.avatars[me] || {};
+      if (a.kite || a.surf) { store.update(`avatars/${me}`, { kite: null, surf: null, ...(a.surf ? { y: 67 } : {}) }); toast(a.surf ? '🌧️ Rain! Everyone out of the water 🏄' : '🌧️ Rain! You reel the kite in 🪁', 3000); }
+      const fires = Object.entries(S.items).filter(([, it]) => it.k === 'campfire' && it.lit);
+      if (fires.length) { fires.forEach(([k]) => store.update(`${sp()}/items/${k}`, { lit: null })); sfx.sizzle(); setTimeout(() => toast('💨 Hssss… the rain put the fire out', 2600), 800); }
+    },
     pickSpot: () => { const a = S.avatars[me] || { x: 100, y: 85 }; return { x: +clamp(a.x + rand(-14, 14), 10, roomW() - 10).toFixed(1), y: +clamp(Math.max(a.y, 70) + rand(0, 8), 70, 96).toFixed(1) }; },
     addScenery: data => store.push(`${sp()}/items`, { s: 1, ...data, by: me, ts: store.now() }),
     faceImage: id => new Promise(res => { const src = pic(id); if (!src) return res(prof(id).face); const im = new Image(); im.onload = () => res(im); im.onerror = () => res(prof(id).face); im.src = src; }),
@@ -644,6 +650,7 @@ async function enterRoom() {
     myPos: () => { const a = avatarEl(me); return a ? { x: a._x, y: a._y } : { x: 100, y: 85 }; },
     partnerPos: () => { const a = avatarEl(other); return a && roomOf(other) === view && isOnline(other) ? { x: a._x, y: a._y } : null; },
     myAvatar: () => S.avatars[me], moveMe: upd => store.update(`avatars/${me}`, upd),
+    wet: () => isWet(), focus: (x, y) => { cam.z = 1; layoutWorld(); centerOn(x, y); },
     beachData: () => S.beach || {}, addFurn: k => addFurniture(k), item: id => S.items[id],
     removeItem: id => store.remove(`${sp()}/items/${id}`), updateItem: (id, u) => store.update(`${sp()}/items/${id}`, u),
     fxAt: (id, e) => { const el = $(`#items [data-id="${id}"]`); const it = S.items[id]; if (it) spawnFx(e, it.x, it.y, 8); el?.classList.add('shake'); },
@@ -1443,15 +1450,16 @@ function tapItem(id, p) {
   if (it.k === 'icecart') return beach?.iceMenu();
   if (it.tide) return beach?.castleCard(id, it);
   if (it.k === 'surfrack') return beach?.surf();
-  if (it.k === 'kitestand') return beach?.kiteMenu();
+  if (it.k === 'kitestand') return beach?.kiteMenu(it);
   if (it.k === 'bottlecrate') return beach?.writeBottle();
   if (it.k === 'fishspot') return fishing?.route({ fish: view === 'woods' ? 'start-stream' : 'start-sea', fx: it.x, fy: it.y });
   if (it.k === 'shelljar') return beach?.jarCard();
   if (it.k === 'shellchime') { sfx.tinkle(); const el = $(`#items [data-id="${id}"]`); el?.classList.remove('chiming'); void el?.offsetWidth; el?.classList.add('chiming'); return; }
   if (it.k === 'basket') return woods?.picnic();
   if (it.k === 'campfire') {
-    const lit = it.lit && store.now() - it.lit < HOUR;
+    const lit = it.lit && store.now() - it.lit < HOUR && !(isOutside(view) && isWet());
     lastFire = id;
+    if (!lit && isOutside(view) && isWet()) return toast('🌧️ It’s too wet to light a fire — wait for the rain to stop', 2600);
     if (lit && woods?.campfireMenu(true)) return;
     store.update(`${sp()}/items/${id}`, { lit: lit ? null : store.now() });
     if (!lit) { sfx.sizzle(); logAct('fire', 'lit the campfire in the woods 🔥'); } else sfx.swish();
@@ -1492,7 +1500,11 @@ function renderItems() {
     if (it.k === 'vmail') vmail?.decorate(el);
     if (it.k === 'shelljar') renderJar(el);
     if (it.tide) { if (it.deco) el.dataset.deco = it.deco; else delete el.dataset.deco; }
-    if (it.k === 'campfire') el.classList.toggle('cf-lit', !!it.lit && store.now() - it.lit < HOUR);
+    if (it.k === 'campfire') {
+      const rained = isOutside(view) && isWet();
+      if (rained && it.lit) store.update(`${sp()}/items/${id}`, { lit: null });   // rain puts the fire out
+      el.classList.toggle('cf-lit', !!it.lit && store.now() - it.lit < HOUR && !rained);
+    }
     if (it.t === 'food') kitchen?.renderFood(el, it);
     if (it.t === 'text') el.style.color = it.c || '#fff';
     if (it.t === 'furn') {
