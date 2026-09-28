@@ -1,13 +1,13 @@
-import { createStore } from './store.js?v=15';
-import { createCall } from './call.js?v=15';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=15';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=15';
-import { initTV } from './tv.js?v=15';
-import { initGames } from './games.js?v=15';
-import { initPet } from './pet.js?v=15';
-import { cropPhoto } from './dp.js?v=15';
-import { initVmail } from './vmail.js?v=15';
-import { initOutside, INDOOR } from './outside.js?v=15';
+import { createStore } from './store.js?v=16';
+import { createCall } from './call.js?v=16';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=16';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=16';
+import { initTV } from './tv.js?v=16';
+import { initGames } from './games.js?v=16';
+import { initPet } from './pet.js?v=16';
+import { cropPhoto } from './dp.js?v=16';
+import { initVmail } from './vmail.js?v=16';
+import { initOutside, INDOOR } from './outside.js?v=16';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -32,17 +32,19 @@ const ROOMS = {
   garden: { name: 'Garden', icon: '🌷', rest: 'gbench', w: 1.6 },
   yard: { name: 'Front yard', icon: '🏡', rest: 'gbench', w: 2, out: true },
   beach: { name: 'Beach', icon: '🏖️', rest: 'towel', w: 2, out: true, wild: true },
+  woods: { name: 'Woods', icon: '🌲', rest: 'log', w: 2, out: true, wild: true },
 };
 const isOutside = rm => !!ROOMS[rm]?.out;
-const ROOM_BLURB = { living: 'TV, sofa, arcade & notes board', bedroom: 'Cozy bed & fairy lights', kitchen: 'Cook, bake & make tea together', garden: 'Flowers, swing, pond & butterflies', yard: 'Outside your house · paths to the woods & beach', beach: 'Waves, sandcastles, shells & sunsets' };
-const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 }, kitchen: { x: 14, y: 64 }, garden: { x: 14, y: 64 }, yard: { x: 100, y: 67 }, beach: { x: 14, y: 72 } };
+const ROOM_BLURB = { living: 'TV, sofa, arcade & notes board', bedroom: 'Cozy bed & fairy lights', kitchen: 'Cook, bake & make tea together', garden: 'Flowers, swing, pond & butterflies', yard: 'Outside your house · paths to the woods & beach', beach: 'Waves, sandcastles, shells & sunsets', woods: 'Trees, a stream, animals & a campfire' };
+const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 }, kitchen: { x: 14, y: 64 }, garden: { x: 14, y: 64 }, yard: { x: 100, y: 67 }, beach: { x: 14, y: 72 }, woods: { x: 186, y: 72 } };
 const DEFAULT_LOOK = {
   living: { wall: '#ffd6e0', wp: 'dots', floor: '#e9b872', fl: 'wood', rug: '#ff8fab', cur: '#ff5fa2' },
   bedroom: { wall: '#e4c1f9', wp: 'stars', floor: '#bdb2ff', fl: 'carpet', rug: '#ffffff', cur: '#7b5cff' },
   kitchen: { wall: '#b8f2e6', wp: 'checks', floor: '#f4f1fb', fl: 'tiles', rug: 'none', cur: '#ffb703' },
   garden: { wall: '#8fd3ff', wp: 'none', floor: '#8ac926', fl: 'grass', rug: 'none', cur: 'none' },
   beach: { wall: '#8fd3ff', wp: 'none', floor: '#f4d9a0', fl: 'sand', rug: 'none', cur: 'none' },
-  yard: { wall: '#8fd3ff', wp: 'none', floor: '#7cc444', fl: 'grass', rug: 'none', cur: 'none', house: '#ffe8d6', roof: '#e63946', hdoor: '#7b5cff', trim: '#ffffff' },
+  woods: { wall: '#8fd3ff', wp: 'none', floor: '#5f9e3a', fl: 'grass', rug: 'none', cur: 'none' },
+  yard: { wall: '#8fd3ff', wp: 'none', floor: '#7cc444', fl: 'grass', rug: 'none', cur: 'none', house: '#ffe8d6', roof: '#e63946', hdoor: '#7b5cff', trim: '#ffffff', shut: '#2b6777' },
 };
 const SEED = {
   living: {
@@ -93,6 +95,15 @@ const SEED = {
     'seed-bee': { t: 'emoji', v: '🐝', x: 30, y: 80 },
     'seed-mush': { t: 'emoji', v: '🍄', x: 154, y: 82 },
   },
+  woods: {
+    'seed-wfire': { t: 'furn', k: 'campfire', x: 100, y: 84, c: '#ff7a59' },
+    'seed-wlog1': { t: 'furn', k: 'log', x: 78, y: 86, c: '#8d5a3b' },
+    'seed-wlog2': { t: 'furn', k: 'log', x: 122, y: 86, c: '#8d5a3b', fl: true },
+    'seed-wmush1': { t: 'emoji', v: '🍄', x: 40, y: 90, s: .6 },
+    'seed-wmush2': { t: 'emoji', v: '🍄', x: 164, y: 80, s: .5 },
+    'seed-wflower': { t: 'emoji', v: '🌼', x: 140, y: 94, s: .5 },
+    'seed-wrock': { t: 'emoji', v: '🪨', x: 58, y: 74, s: .8 },
+  },
   beach: {
     'seed-btowel': { t: 'furn', k: 'towel', x: 62, y: 86, c: '#ff5fa2' },
     'seed-bumbrella': { t: 'emoji', v: '⛱️', x: 90, y: 82, s: 1.6 },
@@ -103,7 +114,7 @@ const SEED = {
   },
   yard: {
     'seed-ybench': { t: 'furn', k: 'gbench', x: 40, y: 84, c: '#c8875a' },
-    'seed-ytree': { t: 'furn', k: 'tree', x: 160, y: 74, c: '#6cc24a' },
+    'seed-ytree': { t: 'furn', k: 'tree', x: 180, y: 74, c: '#6cc24a' },
     'seed-ymail': { t: 'emoji', v: '📫', x: 128, y: 70 },
     'seed-yflower1': { t: 'emoji', v: '🌷', x: 76, y: 66, s: .7 },
     'seed-yflower2': { t: 'emoji', v: '🌻', x: 124, y: 66, s: .7 },
@@ -181,6 +192,8 @@ const FURN = {
   towel: { label: 'Beach towel', icon: '🏖️', c: '#ff5fa2', html: '<div class="tw"></div>' },
   deckchair: { label: 'Deck chair', icon: '🪑', c: '#4f8cff', html: '<div class="dc-leg l"></div><div class="dc-leg r"></div><div class="dc-back"></div><div class="dc-seat"></div>' },
   bucket: { label: 'Sand bucket', icon: '🪣', c: '#ff4d6d', tap: true, html: '<div class="bk-handle"></div><div class="bk-pail"></div><div class="bk-spade"></div>' },
+  campfire: { label: 'Campfire', icon: '🔥', c: '#ff7a59', tap: true, html: '<div class="cf-glow"></div><div class="cf-stones"></div><div class="cf-wood"></div><div class="cf-flame f1"></div><div class="cf-flame f2"></div><div class="cf-flame f3"></div><div class="cf-smoke"></div>' },
+  log: { label: 'Log bench', icon: '🪵', c: '#8d5a3b', html: '<div class="lg-body"></div><div class="lg-end"></div>' },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
 // Where characters sit or lie on furniture: [dx, height above the item's bottom, pose] in room units
@@ -193,6 +206,7 @@ const SEATS = {
   gbench: { front: [[-7, 6.5, 'sit'], [7, 6.5, 'sit']] },
   towel: { front: [[-8, 1, 'lie'], [8, 1, 'lie']] },
   deckchair: { front: [[0, 5, 'sit']] },
+  log: { front: [[-5, 5.5, 'sit'], [5, 5.5, 'sit']] },
 };
 const TURNABLE = { sofa: ['front', 'back', 'left', 'right'], chair: ['front', 'back', 'left', 'right'] };
 const TV_CHANNELS = ['', '🐠', '💕', '⚽', ''];
@@ -332,7 +346,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 15;
+const VERSION = 16;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -538,6 +552,7 @@ async function enterRoom() {
     isVisitor: () => isVisitor, roomName: rm => ROOMS[rm]?.name || rm, exists: rm => !!ROOMS[rm], goRoom: rm => goThroughDoor(rm),
     myTz: () => Intl.DateTimeFormat().resolvedOptions().timeZone, clock: tz => localTime(tz),
     sfx, logAct, color: id => prof(id).color,
+    peopleHere: () => $$('.avatar').filter(a => a._x != null).map(a => ({ x: a._x, y: a._y })),
     pickSpot: () => { const a = S.avatars[me] || { x: 100, y: 85 }; return { x: +clamp(a.x + rand(-14, 14), 10, roomW() - 10).toFixed(1), y: +clamp(Math.max(a.y, 70) + rand(0, 8), 70, 96).toFixed(1) }; },
     addScenery: data => store.push(`${sp()}/items`, { s: 1, ...data, by: me, ts: store.now() }),
     faceImage: id => new Promise(res => { const src = pic(id); if (!src) return res(prof(id).face); const im = new Image(); im.onload = () => res(im); im.onerror = () => res(prof(id).face); im.src = src; }),
@@ -611,6 +626,8 @@ async function openSpace(rid) {
     for (const [k, v] of Object.entries(SEED2[rid] || {})) upd[`items/${k}`] = { s: 1, ...v, ts: 0 };
     if (seeded && sofa && sofa.x === 50 && sofa.y === 95) Object.assign(upd, { 'items/seed-sofa/face': 'back', 'items/seed-sofa/x': 55, 'items/seed-sofa/y': 92 });
   }
+  // The house got a garage: nudge the yard's apple tree out of its way (once, only if nobody moved it)
+  if (rid === 'yard' && seeded) { const tr = await store.once(`${sp()}/items/seed-ytree`); if (tr && tr.x === 160 && tr.y === 74) upd['items/seed-ytree/x'] = 180; }
   if (Object.keys(upd).length) store.update(sp(), upd);
 
   spaceUnsubs = [
@@ -811,7 +828,7 @@ function renderLook() {
   $('#window').classList.toggle('nocur', r.cur === 'none');
   if (r.cur !== 'none') $('#window').style.setProperty('--cur', r.cur);
   $('#stage').classList.toggle('lights-off', r.lights === false && !isOutside(view));
-  if (r.house) ['house', 'roof', 'hdoor', 'trim'].forEach(k => $('#scene').style.setProperty('--' + k, r[k]));
+  if (r.house) ['house', 'roof', 'hdoor', 'trim', 'shut'].forEach(k => r[k] && $('#scene').style.setProperty('--' + k, r[k]));
   if (panel === 'decorate' && ['wall', 'floor', 'themes', 'house'].includes(decoTab)) renderDecoBody();
 }
 function renderWindow() {
@@ -1258,6 +1275,12 @@ function tapItem(id, p) {
   if (it.k === 'tv') return tv.tapTV();
   if (it.k === 'vmail') return vmail?.open();
   if (it.k === 'bucket') return outside.buildCastle();
+  if (it.k === 'campfire') {
+    const lit = it.lit && store.now() - it.lit < HOUR;
+    store.update(`${sp()}/items/${id}`, { lit: lit ? null : store.now() });
+    if (!lit) { sfx.sizzle(); logAct('fire', 'lit the campfire in the woods 🔥'); } else sfx.swish();
+    return toast(lit ? '💨 Fire’s out' : '🔥 Cosy! Sit on a log and warm up (it burns for an hour)', 2600);
+  }
   if (it.k === 'arcade') return openPanel('games');
   if (it.k === 'flowerbed') return showBed(id);
   if (it.k === 'floorlamp') return toggleLights();
@@ -1290,6 +1313,7 @@ function renderItems() {
     el.classList.toggle('flyer', flyer);
     if (it.k === 'flowerbed') renderBed(el);
     if (it.k === 'vmail') vmail?.decorate(el);
+    if (it.k === 'campfire') el.classList.toggle('cf-lit', !!it.lit && store.now() - it.lit < HOUR);
     if (it.t === 'food') kitchen?.renderFood(el, it);
     if (it.t === 'text') el.style.color = it.c || '#fff';
     if (it.t === 'furn') {
@@ -1822,7 +1846,7 @@ function renderDecoBody() {
     themes: `<div class="themes">${THEMES.map(([i, n, bg], idx) => `<button style="background:${bg};color:${bg === '#2b2d42' ? '#fff' : 'inherit'}" data-theme="${idx}"><span>${i}</span>${n}</button>`).join('')}</div>
       <p class="hint">A theme repaints the walls, floor, rug and curtains of this room.</p>`,
     house: `<div class="slim-line"><small>Walls</small>${swatches(PALETTE, r.house, 'data-look-house')}</div><div class="slim-line"><small>Roof</small>${swatches(PALETTE, r.roof, 'data-look-roof')}</div>
-      <div class="slim-line"><small>Door</small>${swatches(PALETTE, r.hdoor, 'data-look-hdoor')}</div><div class="slim-line"><small>Windows</small>${swatches(PALETTE, r.trim, 'data-look-trim')}</div>`,
+      <div class="slim-line"><small>Door</small>${swatches(PALETTE, r.hdoor, 'data-look-hdoor')}</div><div class="slim-line"><small>Trim</small>${swatches(PALETTE, r.trim, 'data-look-trim')}</div><div class="slim-line"><small>Shutters</small>${swatches(PALETTE, r.shut, 'data-look-shut')}</div>`,
     wall: `<div class="slim-line"><small>Paint</small>${swatches(PALETTE, r.wall, 'data-look-wall')}</div><div class="slim-line"><small>Paper</small>${chips(WALLPAPERS, r.wp, 'wp')}</div><div class="slim-line"><small>Curtains</small>${swatches(PALETTE, r.cur, 'data-look-cur', { none: true })}</div>`,
     floor: `<div class="slim-line"><small>Floor</small>${chips(FLOORS, r.fl, 'fl')}</div><div class="slim-line"><small>Colour</small>${swatches(PALETTE, r.floor, 'data-look-floor')}</div><div class="slim-line"><small>Rug</small>${swatches(PALETTE, r.rug, 'data-look-rug', { none: true })}</div>`,
     text: `<div class="row"><input class="field" id="text-input" maxlength="60" placeholder="Write on the wall… (🔒 1 hour)" enterkeyhint="done"><button class="btn small" data-add-text>Add</button></div>
@@ -1830,7 +1854,7 @@ function renderDecoBody() {
   };
   b.innerHTML = html[decoTab];
 }
-const LOOK_LOG = { house: 'painted the house 🏡', roof: 'gave the house a new roof colour 🏠', hdoor: 'painted the front door 🚪', trim: 'painted the window frames 🪟', wall: 'painted the wall 🎨', wp: 'changed the wallpaper 🖼️', floor: 'changed the floor 🪵', fl: 'changed the floor 🪵', rug: 'got a new rug 🧶', cur: 'hung new curtains 🪟' };
+const LOOK_LOG = { house: 'painted the house 🏡', roof: 'gave the house a new roof colour 🏠', hdoor: 'painted the front door 🚪', trim: 'painted the window frames 🪟', shut: 'painted the shutters 🪟', wall: 'painted the wall 🎨', wp: 'changed the wallpaper 🖼️', floor: 'changed the floor 🪵', fl: 'changed the floor 🪵', rug: 'got a new rug 🧶', cur: 'hung new curtains 🪟' };
 function setLook(key, val) {
   const prev = S.look[key] ?? null;
   remember('look:' + key, () => store.update(`${sp()}/look`, { [key]: prev }));
@@ -2400,6 +2424,7 @@ function route(d, t) {
   if (d.lookRoof) return setLook('roof', d.lookRoof);
   if (d.lookHdoor) return setLook('hdoor', d.lookHdoor);
   if (d.lookTrim) return setLook('trim', d.lookTrim);
+  if (d.lookShut) return setLook('shut', d.lookShut);
   if (d.theme) {
     const [icon, name, , vals] = THEMES[+d.theme];
     const prev = Object.fromEntries(Object.keys(vals).map(k => [k, S.look[k] ?? null]));

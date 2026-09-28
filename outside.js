@@ -26,14 +26,27 @@ const YARD = `
   <div class="os-hills"><i class="h1"></i><i class="h2"></i><i class="h3"></i></div>
   <div class="os-sun"></div><div class="os-moon"></div><div class="os-stars"></div>
   <div class="ys-house">
-    <div class="ys-chimney"></div><div class="ys-roof"></div>
+    <div class="ys-chimney"><i class="ys-smoke s1"></i><i class="ys-smoke s2"></i></div>
+    <div class="ys-garage"><div class="ys-groof"></div><div class="ys-gwall"><div class="ys-gdoor"></div><div class="ys-glamp"></div></div></div>
+    <div class="ys-roof"><div class="ys-attic"></div></div><div class="ys-fascia"></div>
     <div class="ys-body">
-      <div class="ys-win w1"><span class="ys-face"></span></div><div class="ys-win w2"><span class="ys-face"></span></div>
-      <div class="ys-win w3"><span class="ys-face"></span></div><div class="ys-win w4"><span class="ys-face"></span></div>
-      <button class="ys-door" data-go="living" aria-label="Go inside"><i></i><span class="ys-sign-home">🏠 Home</span></button>
+      <div class="ys-band"></div>
+      <div class="ys-win up w1"><span class="ys-face"></span><i class="sh l"></i><i class="sh r"></i></div>
+      <div class="ys-win up mid"><span class="ys-face"></span></div>
+      <div class="ys-win up w4"><span class="ys-face"></span><i class="sh l"></i><i class="sh r"></i></div>
+      <div class="ys-win dn w2"><span class="ys-face"></span><i class="sh l"></i><i class="sh r"></i><b class="ys-box"></b></div>
+      <div class="ys-win dn w3"><span class="ys-face"></span><i class="sh l"></i><i class="sh r"></i><b class="ys-box"></b></div>
+      <div class="ys-porch"><div class="ys-proof"></div><i class="ys-col l"></i><i class="ys-col r"></i><i class="ys-lamp l"></i><i class="ys-lamp r"></i></div>
+      <button class="ys-door" data-go="living" aria-label="Go inside"><i class="ys-glass"></i><i class="ys-knob"></i><span class="ys-sign-home">🏠 Home</span></button>
+      <div class="ys-num">12</div>
+      <div class="ys-base"></div>
     </div>
+    <div class="ys-steps"><i></i><i></i><i></i></div><div class="ys-mat"></div>
+    <div class="ys-bush b1"></div><div class="ys-bush b2"></div><div class="ys-bush b3"></div><div class="ys-bush b4"></div>
   </div>
   <div class="ys-path"></div>
+  <i class="ys-plight" style="left:calc(90 * var(--u));top:70%"></i><i class="ys-plight" style="left:calc(110 * var(--u));top:70%"></i>
+  <i class="ys-plight" style="left:calc(87 * var(--u));top:84%"></i><i class="ys-plight" style="left:calc(113 * var(--u));top:84%"></i>
   <div class="ys-fence l"></div><div class="ys-fence r"></div>
   <button class="os-sign l" data-go="woods"><b>← 🌲 Woods</b><i></i></button>
   <button class="os-sign r" data-go="beach"><b>Beach 🏖️ →</b><i></i></button>`;
@@ -49,6 +62,40 @@ const BEACH = `
   <button class="os-sign l" data-go="yard"><b>← 🏡 Home</b><i></i></button>
   <button class="bs-photo" data-photo-spot aria-label="Photo spot"><b>📸</b><span>Photo spot</span></button>`;
 
+const WOODS = `
+  <div class="os-sun"></div><div class="os-moon"></div><div class="os-stars"></div>
+  <div class="ws-far"></div><div class="ws-mid"></div>
+  <div class="ws-stream"><i></i></div>
+  ${[[4, 30, 1.25], [26, 34, 1], [52, 29, 1.1], [150, 30, 1.2], [176, 33, 1], [196, 29, 1.3]].map(([x, b, s]) => `<div class="ws-tree" style="left:calc(${x} * var(--u));bottom:${b}%;--ts:${s}"><i class="tk"></i><b>🌲</b></div>`).join('')}
+  <div class="ws-flies">${Array.from({ length: 14 }, (_, i) => `<i style="left:calc(${(7 + i * 13.5) % 196} * var(--u));top:${55 + (i * 37) % 38}%;animation-delay:-${(i * 0.7).toFixed(1)}s"></i>`).join('')}</div>
+  <div class="ws-animals"></div>
+  <button class="os-sign r" data-go="yard"><b>Home 🏡 →</b><i></i></button>`;
+
+// Woodland animals: [emoji, when they're about, home zone x1-x2, y1-y2 (%), size]
+const ANIMALS = {
+  deer: ['🦌', ['dawn', 'day', 'sunset'], [60, 140], [66, 80], 13],
+  rabbit1: ['🐇', ['dawn', 'day', 'sunset'], [20, 90], [72, 95], 7],
+  rabbit2: ['🐇', ['day', 'sunset'], [110, 185], [74, 95], 6.5],
+  squirrel: ['🐿️', ['dawn', 'day'], [140, 190], [68, 84], 6],
+  fox: ['🦊', ['dawn', 'sunset', 'night'], [30, 170], [70, 92], 9],
+  hedgehog: ['🦔', ['sunset', 'night'], [40, 160], [82, 96], 6],
+  owl: ['🦉', ['night', 'dawn'], [150, 150], [34, 34], 7],
+  bird1: ['🐦', ['dawn', 'day'], [26, 26], [30, 30], 5],
+  bird2: ['🐦', ['day', 'sunset'], [176, 176], [33, 33], 5],
+};
+const REACT = { deer: 'The deer looks up at you… then trots away 🦌', rabbit1: 'Boing! The rabbit hops off 🐇', rabbit2: 'Boing! The rabbit hops off 🐇',
+  squirrel: 'The squirrel scurries up a tree 🐿️🌲', fox: 'The fox tilts its head at you 🦊', hedgehog: 'The hedgehog curls into a ball 🦔',
+  owl: 'Hoo-hoo! 🦉', bird1: 'Tweet! The bird flutters away 🐦', bird2: 'Tweet! The bird flutters away 🐦' };
+
+// 🌦️ Weather is picked from the clock, so both phones get the same rain at the same time
+function weatherAt(t = Date.now()) {
+  const block = Math.floor(t / (90 * 60000)), prev = Math.floor((t - 40 * 60000) / (90 * 60000));
+  const wet = b => rnd('rain' + b) < 0.16;
+  if (wet(block)) return 'rain';
+  if (wet(prev) && !wet(block)) return 'rainbow';
+  return 'clear';
+}
+
 const SHELLS = ['🐚', '🐚', '🦪', '🐚', '🪸', '🐚'];
 const dayKey = () => new Date().toISOString().slice(0, 10);
 function rnd(seed) { let h = 2166136261; for (const c of seed) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10000) / 10000; }
@@ -63,7 +110,62 @@ export function initOutside(ctx) {
   const otherOut = () => ctx.isOnline(ctx.other()) && isOut(ctx.roomOf(ctx.other()));
   const skyTz = () => shared?.tz || ctx.myTz();
 
-  function sceneHTML(rm) { return rm === 'yard' ? YARD : rm === 'beach' ? BEACH : ''; }
+  function sceneHTML(rm) {
+    const html = rm === 'yard' ? YARD : rm === 'beach' ? BEACH : rm === 'woods' ? WOODS : '';
+    return html ? html + '<div class="wx-rain"></div><div class="wx-rainbow"></div>' : '';
+  }
+
+  // ── 🌲 Woods: animals wander their patch (same plan on both phones), shy of people ──
+  const spooked = {};
+  function animalsTick() {
+    const box = document.querySelector('.ws-animals'); if (!box) return;
+    const ph = phaseOf(localHour(skyTz())), slot = Math.floor(Date.now() / 7000), day = dayKey();
+    const people = ctx.peopleHere();
+    for (const [id, [e, when, [x1, x2], [y1, y2], size]] of Object.entries(ANIMALS)) {
+      let el = box.querySelector(`[data-animal="${id}"]`);
+      const out = when.includes(ph) && !(spooked[id] > Date.now() && ['squirrel', 'bird1', 'bird2'].includes(id));
+      if (!el) {
+        el = document.createElement('button');
+        el.className = 'ws-animal'; el.dataset.animal = id; el.textContent = e;
+        el.style.fontSize = `calc(${size} * var(--u))`;
+        box.append(el);
+      }
+      el.classList.toggle('gone', !out);
+      if (!out) continue;
+      let x = x1 + rnd(day + id + 'x' + slot) * (x2 - x1), y = y1 + rnd(day + id + 'y' + slot) * (y2 - y1);
+      // Shy: keep away from people (and run further if you just startled them)
+      for (const p of people) {
+        const dx = x - p.x, dist = Math.hypot(dx, (y - p.y) * 1.2);
+        const need = spooked[id] > Date.now() ? 45 : 20;
+        if (x1 !== x2 && dist < need) x = Math.max(8, Math.min(192, x + (dx >= 0 ? 1 : -1) * (need - dist + 10)));
+      }
+      const px = el._x ?? x;
+      el.classList.toggle('flip', x > px + .5 ? true : x < px - .5 ? false : el.classList.contains('flip'));
+      el._x = x;
+      el.style.left = `calc(${x.toFixed(1)} * var(--u))`; el.style.top = y.toFixed(1) + '%';
+    }
+  }
+  function tapAnimal(el) {
+    const id = el.dataset.animal; if (!id) return;
+    spooked[id] = Date.now() + 9000;
+    el.classList.remove('react'); void el.offsetWidth; el.classList.add('react', 'react-' + id.replace(/\d/, ''));
+    setTimeout(() => el.classList.remove('react', 'react-' + id.replace(/\d/, '')), 1400);
+    ctx.sfx.pop();
+    ctx.toast(REACT[id], 2200);
+    setTimeout(animalsTick, 500);
+  }
+
+  // ── 🌦️ Weather ──
+  let lastWx = null;
+  function applyWeather() {
+    const st = $('#stage'), out = isOut(here());
+    const wx = out ? weatherAt() : 'clear';
+    st.classList.toggle('wx-rainy', wx === 'rain');
+    st.classList.toggle('wx-bow', wx === 'rainbow' && phaseOf(localHour(skyTz())) !== 'night');
+    if (out && wx !== lastWx && lastWx !== null) ctx.toast(wx === 'rain' ? '🌧️ It’s starting to rain!' : wx === 'rainbow' ? '🌈 The rain stopped — look, a rainbow!' : '☀️ The sky is clearing up', 3000);
+    lastWx = out ? wx : null;
+    return wx;
+  }
 
   // ── 🏖️ Beach: seashells to collect (new ones every day), crabs, sandcastles, photo spot ──
   let beachData = {};
@@ -139,11 +241,13 @@ export function initOutside(ctx) {
     ['dawn', 'day', 'sunset', 'night'].forEach(p => st.classList.toggle('sky-' + p, p === ph));
     st.classList.toggle('outside', out);
     let chip = $('#sky-chip');
-    if (!out) { if (chip) chip.hidden = true; return; }
+    if (!out) { if (chip) chip.hidden = true; applyWeather(); return; }
     if (!chip) { chip = document.createElement('div'); chip.id = 'sky-chip'; st.append(chip); }
     chip.hidden = false;
     const who = shared?.by ? `${ctx.called(shared.by)}’s time` : 'your time';
-    chip.textContent = `${PHASE_LABEL[ph]} · ${ctx.clock(skyTz())} · ${who}`;
+    const wx = applyWeather();
+    chip.textContent = `${PHASE_LABEL[ph]}${wx === 'rain' ? ' · 🌧️ Rain' : wx === 'rainbow' ? ' · 🌈' : ''} · ${ctx.clock(skyTz())} · ${who}`;
+    animalsTick();
     windows();
     renderShells();
   }
@@ -203,6 +307,7 @@ export function initOutside(ctx) {
 
   function route(d, t) {
     if (d.crab) { crab(t); return true; }
+    if (d.animal) { tapAnimal(t); return true; }
     if (d.go) { ctx.hideOverlay(); travel(d.go); return true; }
     if (d.walkAlone) { ctx.hideOverlay(); travel(d.walkAlone, { together: false }); return true; }
     if (d.walkTogether) { ctx.hideOverlay(); travel(d.walkTogether, { together: true }); return true; }
@@ -214,6 +319,7 @@ export function initOutside(ctx) {
   }
 
   setInterval(() => { if (isOut(here())) applySky(); }, 60000);
+  setInterval(() => { if (here() === 'woods' && !document.hidden) animalsTick(); }, 3500);
 
   return { onBeach, crab, buildCastle, sceneHTML, applySky, windows, onShared, onWalk, canGo, neighbours, blockedMsg, arrived, travel, route, isOut, CLOSABLE: ['walkask', 'postcard'] };
 }
