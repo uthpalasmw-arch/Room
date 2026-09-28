@@ -1552,3 +1552,47 @@ button.game:active { transform: scale(.98); }
 .k-raban { width: calc(14 * var(--u)); height: calc(7 * var(--u)); }
 .k-raban .rb-side { left: 0; right: 0; bottom: 0; height: calc(4.4 * var(--u)); background: var(--c); border-radius: 0 0 50% 50% / 0 0 40% 40%; background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 calc(.5 * var(--u)), transparent 0 calc(2 * var(--u))); }
 .k-raban .rb-top { left: 0; right: 0; top: 0; height: calc(4 * var(--u)); border-radius: 50%; background: #f5e6c8; box-shadow: inset 0 0 0 calc(.6 * var(--u)) #8d5a3b; }
+
+/* ── 🚢 Sea life ── */
+.bs-life { position: absolute; inset: 0; }
+.bs-life > span { position: absolute; opacity: 0; transition: opacity 1.2s, left 1s linear; line-height: 1; pointer-events: none; }
+.bs-life > span.on { opacity: 1; }
+.bs-ship { top: 4%; font-size: calc(13 * var(--u)); transform: scaleX(-1); }
+.sky-night .bs-ship { filter: brightness(.6) drop-shadow(0 0 calc(1.5 * var(--u)) #ffe066); }
+.bs-boat { top: 22%; font-size: calc(9 * var(--u)); animation: bs-rock 3s ease-in-out infinite; }
+@keyframes bs-rock { 50% { rotate: 5deg; } }
+.bs-dolph { top: 40%; width: calc(24 * var(--u)); height: calc(10 * var(--u)); }
+.bs-dolph b { position: absolute; bottom: 0; font-size: calc(7.5 * var(--u)); opacity: 0; }
+.bs-dolph.on b { animation: bs-jump 1.8s ease-in-out infinite; }
+.bs-dolph b:nth-child(1) { left: 0; } .bs-dolph b:nth-child(2) { left: calc(8 * var(--u)); animation-delay: .35s; } .bs-dolph b:nth-child(3) { left: calc(16 * var(--u)); animation-delay: .7s; }
+@keyframes bs-jump { 0% { transform: translateY(calc(3 * var(--u))) rotate(40deg); opacity: 0; } 15% { opacity: 1; } 50% { transform: translate(calc(4 * var(--u)), calc(-7 * var(--u))) rotate(-10deg); } 85% { opacity: 1; } 100% { transform: translate(calc(8 * var(--u)), calc(3 * var(--u))) rotate(-60deg); opacity: 0; } }
+.bs-whale { top: 50%; font-size: calc(8 * var(--u)); }
+.bs-whale i { position: absolute; left: 30%; bottom: 80%; width: calc(2 * var(--u)); height: calc(6 * var(--u)); background: linear-gradient(transparent, rgba(255,255,255,.9)); border-radius: 50% 50% 0 0; animation: bs-spout 2s ease-out infinite; transform-origin: 50% 100%; }
+@keyframes bs-spout { 0% { transform: scaleY(0); opacity: 1; } 60% { transform: scaleY(1.3); opacity: .9; } 100% { transform: scaleY(1.5) scaleX(2); opacity: 0; } }
+/* pier + fishing spot */
+.bs-pier { position: absolute; left: calc(144 * var(--u)); width: calc(20 * var(--u)); top: 52%; height: 16%; background: repeating-linear-gradient(0deg, #b07d4f 0 calc(1.6 * var(--u)), #8d5a3b 0 calc(1.9 * var(--u)));
+  clip-path: polygon(22% 0, 78% 0, 100% 100%, 0 100%); box-shadow: 0 calc(1 * var(--u)) 0 rgba(0,0,0,.2); }
+.bs-pier .post { position: absolute; bottom: calc(-2 * var(--u)); width: calc(1.4 * var(--u)); height: calc(3 * var(--u)); background: #6d4c2b; }
+.bs-pier .p1 { left: 10%; } .bs-pier .p2 { left: 48%; } .bs-pier .p3 { right: 10%; }
+.sky-night .bs-pier { filter: brightness(.55); }
+.bs-fishspot { position: absolute; left: calc(154 * var(--u)); top: calc(52% - 10 * var(--u)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+.bs-fishspot b { font-size: calc(6 * var(--u)); background: #fff; border-radius: 50%; width: calc(9 * var(--u)); height: calc(9 * var(--u)); display: grid; place-items: center; box-shadow: 0 calc(.6 * var(--u)) 0 rgba(0,0,0,.2); animation: fest-wiggle 3s ease-in-out infinite; }
+.bs-fishspot span { font: 600 calc(2.4 * var(--u)) 'Fredoka', sans-serif; color: #fff; background: rgba(0,0,0,.45); border-radius: 99px; padding: 0 calc(1.2 * var(--u)); margin-top: calc(.5 * var(--u)); }
+.avatar.fishing::before { content: '🎣'; position: absolute; right: calc(-6 * var(--u)); top: calc(2 * var(--u)); font-size: calc(8 * var(--u)); z-index: 2; animation: fs-rod 2.4s ease-in-out infinite; transform-origin: 20% 90%; }
+@keyframes fs-rod { 50% { transform: rotate(-8deg); } }
+/* fishing card */
+.fs-card h2 { margin-bottom: 4px; }
+.fs-water { position: relative; height: 130px; margin: 10px 0; border-radius: 16px; overflow: hidden; background: linear-gradient(#5bc0f8, #1c7ed6); }
+.fs-water::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 14px, rgba(255,255,255,.15) 14px 16px); animation: bs-drift 4s linear infinite; }
+.fs-line { position: absolute; left: 50%; top: 0; width: 1px; height: 62px; background: rgba(255,255,255,.8); }
+.fs-bob { position: absolute; left: calc(50% - 9px); top: 58px; width: 18px; height: 22px; border-radius: 50% 50% 45% 45%; background: linear-gradient(#ff3b30 50%, #fff 50%); box-shadow: 0 2px 0 rgba(0,0,0,.2); animation: fs-float 1.6s ease-in-out infinite; }
+@keyframes fs-float { 50% { transform: translateY(4px); } }
+.fs-bob.bite { animation: fs-dip .25s ease-in-out infinite; }
+@keyframes fs-dip { 50% { transform: translateY(16px); } }
+.fs-bob.reel { animation: none; transform: translateY(-80px); transition: transform .8s ease-in; }
+.fs-ripple { position: absolute; left: calc(50% - 22px); top: 74px; width: 44px; height: 12px; border: 2px solid rgba(255,255,255,.7); border-radius: 50%; animation: bs-ripple 1.6s ease-out infinite; }
+.fs-reel.now { animation: fs-pulse .3s ease-in-out infinite alternate; background: linear-gradient(135deg, #ff3b30, #ff9500); }
+@keyframes fs-pulse { to { transform: scale(1.05); } }
+.fs-now { color: #ff3b30; font-size: 18px; }
+.fs-catch { font-size: 72px; line-height: 1.1; animation: pop .4s cubic-bezier(.3,1.6,.5,1); }
+.fs-rec { color: #ff9500; }

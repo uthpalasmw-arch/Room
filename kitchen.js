@@ -5,7 +5,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
 const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
-export const CATS = [['drinks', '☕ Drinks'], ['breakfast', '🥞 Breakfast'], ['meals', '🍝 Meals'], ['lanka', '🇱🇰 Sri Lankan'], ['desserts', '🎂 Desserts'], ['snacks', '🍿 Snacks']];
+export const CATS = [['drinks', '☕ Drinks'], ['breakfast', '🥞 Breakfast'], ['meals', '🍝 Meals'], ['lanka', '🇱🇰 Sri Lankan'], ['desserts', '🎂 Desserts'], ['snacks', '🍿 Snacks'], ['catch', '🎣 Seafood']];
 // Which recipe tab each appliance opens
 export const APPLIANCE_CAT = { fridge: 'fridge', kettle: 'drinks', coffee: 'drinks', blender: 'drinks', toaster: 'breakfast', stove: 'meals', microwave: 'snacks', sink: 'all', counter: 'all', wcabinet: 'all' };
 
@@ -64,6 +64,13 @@ export const RECIPES = [
   { id: 'icecream', n: 'Ice Cream', e: '🍦', cat: 'desserts', steps: [G('🥛', '🍬', '🧊'), CIR('Churn it!', '🍦', 3), PICK('Flavour', [['🍓', 'strawberry'], ['🍫', 'chocolate'], ['🥭', 'mango'], ['🍦', 'vanilla']])] },
   { id: 'pudding', n: 'Pudding', e: '🍮', cat: 'desserts', steps: [G('🥚', '🥛', '🍬'), CIR('Whisk', '🥣', 2), HOLD('Pour into moulds', '🍮', '#f5d58a'), HEAT('Steam it', '♨️', '🍮')] },
   { id: 'donut', n: 'Donuts', e: '🍩', cat: 'desserts', hot: true, steps: [G('🌾', '🍬', '🥛'), SWIPE('Knead the dough', '🫓', 5), TAP('Cut the rings', '🍩', 4, '⭕'), HEAT('Fry them', '🍳', '🍩'), PICK('Glaze', [['🍫', 'chocolate'], ['🍓', 'pink'], ['🌈', 'sprinkles']])] },
+  // 🎣 Seafood — best with something you caught at the beach or in the stream (uses it up)
+  { id: 'grilledfish', n: 'Grilled Fish', e: '🐟', cat: 'catch', hot: true, uses: ['🐟', '🐠', '🐡'], steps: [G('🐟', '🍋', '🧂', '🧄'), TAP('Clean the fish', '🐟', 5, '🐟'), SWIPE('Rub in the spices', '🧂', 4), HEAT('Grill it', '🔥', '🐟'), FLIP('Flip it!', '🐟')] },
+  { id: 'malucurry', n: 'Fish Curry (Malu Curry)', e: '🍛', cat: 'catch', hot: true, uses: ['🐟', '🐠'], steps: [G('🐟', '🥥', '🌶️', '🧅', '🍋'), TAP('Chop the onions', '🧅', 5, '🧅'), CIR('Stir in the curry powder', '🍛', 2), HOLD('Pour the coconut milk', '🥥', '#fffdf4'), HEAT('Simmer the fish', '🍲', '🐟', 0.9)] },
+  { id: 'friedfish', n: 'Fried Fish', e: '🐟', cat: 'catch', hot: true, uses: ['🐟', '🐠', '🐡'], steps: [G('🐟', '🌾', '🧂', '🌶️'), SWIPE('Coat it in flour', '🐟', 4), HEAT('Fry it — careful!', '🍳', '🐟', 1.1), FLIP('Flip it!', '🐟')] },
+  { id: 'hbc', n: 'Hot Butter Cuttlefish', e: '🦑', cat: 'catch', hot: true, uses: ['🦑', '🐙'], steps: [G('🦑', '🧈', '🌶️', '🌾', '🧄'), TAP('Slice into rings', '🦑', 6, '⭕'), SWIPE('Coat in batter', '🦑', 4), HEAT('Deep fry', '🍳', '🦑', 1.1), CIR('Toss in butter & chilli', '🧈', 2)] },
+  { id: 'devilprawn', n: 'Devilled Prawns', e: '🦐', cat: 'catch', hot: true, uses: ['🦐'], steps: [G('🦐', '🧅', '🌶️', '🍅', '🧄'), TAP('Peel the prawns', '🦐', 6, '🦐'), TAP('Chop the onions', '🧅', 4, '🧅'), HEAT('Fry them', '🍳', '🦐'), CIR('Toss in the devilled sauce', '🌶️', 2)] },
+  { id: 'crabcurry', n: 'Jaffna Crab Curry', e: '🦀', cat: 'catch', hot: true, uses: ['🦀'], steps: [G('🦀', '🥥', '🌶️', '🧅', '🧄'), TAP('Crack the claws', '🦀', 5, '💥'), CIR('Stir the spicy curry', '🍛', 3), HEAT('Simmer it', '🍲', '🦀', 0.9)] },
   // 🍿 Snacks
   { id: 'popcorn', n: 'Popcorn', e: '🍿', cat: 'snacks', hot: true, steps: [G('🌽', '🧈', '🧂'), HEAT('Pop it — stop before it burns!', '📻', '🌽', 1.1), SWIPE('Shake the bag!', '🍿', 6, 'y')] },
   { id: 'fries', n: 'French Fries', e: '🍟', cat: 'snacks', hot: true, steps: [G('🥔', '🧂'), TAP('Cut the potatoes', '🥔', 8, '🍟'), HEAT('Fry them', '🍳', '🍟')] },
@@ -88,10 +95,12 @@ export function initKitchen(ctx) {
       <div class="chips book-tabs">${CATS.map(([k, l]) => `<button class="chip ${k === bookCat ? 'on' : ''}" data-book-cat="${k}">${l}</button>`).join('')}</div>
       <div class="recipe-grid">${list.map(r => `<button data-recipe="${r.id}"><span>${r.e}</span>${esc(r.n)}<small>${r.steps.length} steps</small></button>`).join('')}</div>`, 'book', 'cook');
   }
+  const catchFor = r => r.uses && Object.entries(ctx.catches()).sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0)).find(([, c]) => r.uses.includes(c.e));
   function openRecipe(id) {
     const r = R[id]; if (!r) return;
     const canTogether = ctx.together() && ctx.roomOf(other()) === 'kitchen' && ctx.view() === 'kitchen';
     ctx.showCard(`<div class="cook-head"><span class="dish">${r.e}</span><div><b>${esc(r.n)}</b><small>${r.steps.length} steps</small></div><button class="x" data-book-back aria-label="Back">←</button></div>
+      ${r.uses ? (catchFor(r) ? `<p class="status ok">🎣 You’ll cook your ${esc(catchFor(r)[1].n.toLowerCase())} ${catchFor(r)[1].e} from the ${catchFor(r)[1].where === 'stream' ? 'stream' : 'beach'}!</p>` : '<p class="hint">🎣 Tip: catch one at the beach or in the woods to cook your own!</p>') : ''}
       <ol class="step-list">${r.steps.map(([t, label]) => `<li>${VERB[t]} ${esc(label)}</li>`).join('')}</ol>
       <div class="stack">
         <button class="btn wide" data-cook-solo="${id}">👩‍🍳 Cook it alone</button>
@@ -418,7 +427,9 @@ export function initKitchen(ctx) {
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
     const stars = burnt ? 0 : avg >= 0.85 ? 3 : avg >= 0.6 ? 2 : 1;
     const add = extras.find(x => x?.add)?.add;
-    const name = `${burnt ? 'Burnt ' : ''}${r.n}${add ? ` with ${add[1]}` : ''}`;
+    const own = catchFor(r);
+    if (own) ctx.useCatch(own[0]);
+    const name = `${burnt ? 'Burnt ' : ''}${r.n}${add ? ` with ${add[1]}` : ''}${own ? ' — from our own catch 🎣' : ''}`;
     result = { e: r.e, hot: !!r.hot, name, stars, burnt, top: add?.[0] || '', together };
     sfx[burnt ? 'whiff' : 'yay']();
     const starTxt = burnt ? '🖤 Oops!' : '⭐'.repeat(stars);
@@ -545,6 +556,7 @@ export function initKitchen(ctx) {
       <h4>Saved food</h4>
       ${list.length ? `<div class="fridge-grid">${list.map(([k, f]) => `<button data-fridge-item="${esc(k)}" class="${f.burnt ? 'burnt' : ''}"><span>${esc(f.v)}</span>${esc(f.n)}<small>${f.for ? `for ${esc(ctx.called(f.for))}` : `by ${madeBy(f)}`}</small></button>`).join('')}</div>`
         : '<p class="muted">Nothing saved yet. Cook something and choose 🧊 “Put it in the fridge”.</p>'}
+      ${Object.keys(ctx.catches()).length ? `<h4>🎣 Your catch</h4><div class="fridge-grid">${Object.entries(ctx.catches()).map(([k, c]) => `<button data-catch-item="${esc(k)}"><span>${esc(c.e)}</span>${esc(c.n)}<small>${c.cm ? c.cm + ' cm · ' : ''}by ${esc(ctx.called(c.by))}</small></button>`).join('')}</div>` : ''}
       <h4>Always stocked</h4>
       <div class="fridge-grid">${SNACKS.map(([e, n], i) => `<button data-snack="${i}"><span>${e}</span>${n}</button>`).join('')}</div>`, 'fridge', 'cook');
   }
@@ -562,6 +574,15 @@ export function initKitchen(ctx) {
     const res = { e: f.v, name: f.n, stars: f.q || 1, burnt: !!f.burnt, top: f.top || '', hot: false, by: f.by, for: f.for };
     if (how === 'eat') { eatAnim(me(), f.v, f.burnt); thankCook(f); return; }
     place(res, how);
+  }
+  function openCatch(k) {
+    const c = ctx.catches()[k]; if (!c) return openFridge();
+    const recipes = RECIPES.filter(r => r.uses?.includes(c.e));
+    ctx.showCard(`<div class="cook-head"><span></span><div></div><button class="x" data-fridge-open aria-label="Back">←</button></div>
+      <div class="result-dish">${esc(c.e)}</div><h2>${esc(c.n)}</h2><p class="muted">${c.cm ? `${c.cm} cm · ` : ''}caught by ${esc(ctx.called(c.by))} ${c.where === 'stream' ? 'in the stream' : 'at the beach'} · ${ctx.ago(c.ts)}</p>
+      <div class="stack">${recipes.map(r => `<button class="btn wide" data-recipe="${r.id}">${r.e} Cook ${esc(r.n)}</button>`).join('')}
+        ${ctx.hasPet?.() ? `<button class="btn ghost wide" data-catch-pet="${esc(k)}">🐾 Give it to ${esc(ctx.petName())}</button>` : ''}
+        <button class="btn ghost wide" data-catch-bin="${esc(k)}">🗑️ Throw it away</button></div>`, 'fridge-item', 'cook');
   }
   function openSnack(i) {
     const [e, n] = SNACKS[i];
@@ -622,6 +643,9 @@ export function initKitchen(ctx) {
     if (d.fridgeGive) { fridgeAct(d.fridgeGive, 'give'); return true; }
     if (d.fridgeOut) { fridgeAct(d.fridgeOut, 'table'); return true; }
     if (d.snack) { openSnack(+d.snack); return true; }
+    if (d.catchItem) { openCatch(d.catchItem); return true; }
+    if (d.catchBin) { ctx.useCatch(d.catchBin); openFridge(); return true; }
+    if (d.catchPet) { const c = ctx.catches()[d.catchPet]; ctx.useCatch(d.catchPet); ctx.hideOverlay(); if (c) ctx.giveFishToPet(c); return true; }
     return false;
   }
 

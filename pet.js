@@ -628,6 +628,15 @@ export function initPet(ctx) {
     ctx.toast(`${PET_TYPES[P.type].e} ${esc(name())} comes along! 🐾`, 2000);
   }
 
+  // A fish from the beach or stream: a real treat (cats go wild)
+  function giveFish(f) {
+    if (!P) return;
+    doAct('feed');
+    const cat = P.type === 'cat';
+    store.update('pet', { joy: Math.min(100, joy() + (cat ? 25 : 12)), joyAt: now() });
+    ctx.toast(`${PET_TYPES[P.type].e} ${esc(name())} gobbles up the ${esc(f.n.toLowerCase())} ${f.e}${cat ? ' — happiest cat ever! 😻' : ' 😋'}`, 3000);
+  }
+
   function scare() {
     if (!P || room() !== ctx.view()) return;
     scaredUntil = Date.now() + 1600;
@@ -639,7 +648,7 @@ export function initPet(ctx) {
   setTimeout(() => { remind(); setInterval(remind, 60000); }, 5000);
 
   return {
-    onPet, render, tap, hideBar, route, openMain, scare, feedDish, follow, name: () => P?.name,
+    onPet, render, tap, hideBar, route, openMain, scare, feedDish, follow, giveFish, name: () => P?.name,
     has: () => !!P, CLOSABLE: ['petAdopt', 'petInfo', 'petSell'],
   };
 }

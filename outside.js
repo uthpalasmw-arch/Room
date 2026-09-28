@@ -1,6 +1,6 @@
 // 🏡 Outside: the front yard (and later the beach and woods), travel rules, one shared sky, walking together.
 
-import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=17';
+import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=18';
 
 export const INDOOR = ['living', 'bedroom', 'kitchen', 'garden'];
 export const OUTDOOR = ['yard', 'beach', 'woods'];
@@ -55,12 +55,16 @@ const YARD = `
 
 const BEACH = `
   <div class="os-sun"></div><div class="os-moon"></div><div class="os-stars"></div>
-  <div class="bs-sea"><i class="bs-glint"></i></div>
+  <div class="bs-sea"><i class="bs-glint"></i>
+    <div class="bs-life"><span class="bs-ship">🚢</span><span class="bs-boat">⛵</span><span class="bs-whale"><i></i>🐋</span>
+      <span class="bs-dolph"><b>🐬</b><b>🐬</b><b>🐬</b></span></div></div>
   <div class="bs-shore"><i class="w1"></i><i class="w2"></i></div>
   <div class="bs-gulls"><span>🕊️</span><span>🕊️</span></div>
   <div class="bs-palm p1"><i class="trunk"></i><b>🌴</b></div><div class="bs-palm p2"><i class="trunk"></i><b>🌴</b></div>
   <button class="bs-crab c1" data-crab="1">🦀</button><button class="bs-crab c2" data-crab="2">🦀</button>
   <div class="bs-shells"></div>
+  <div class="bs-pier"><i class="post p1"></i><i class="post p2"></i><i class="post p3"></i></div>
+  <button class="bs-fishspot" data-fish="start-sea"><b>🎣</b><span>Fish</span></button>
   <button class="os-sign l" data-go="yard"><b>← 🏡 Home</b><i></i></button>
   <button class="bs-photo" data-photo-spot aria-label="Photo spot"><b>📸</b><span>Photo spot</span></button>`;
 
@@ -206,6 +210,30 @@ export function initOutside(ctx) {
     ctx.sfx.yay();
     ctx.logAct('castle', 'built a sandcastle at the beach 🏰 (the tide takes it tomorrow)');
   }
+  // 🚢 Life out at sea — the same schedule on both phones, so you spot the dolphins together
+  const SEA_LIFE = {
+    ship: { cycle: 9 * 60, dur: 110, chance: .7, from: 215, to: -35 },
+    boat: { cycle: 6 * 60, dur: 150, chance: .6, from: -25, to: 220 },
+    dolph: { cycle: 3 * 60, dur: 9, chance: .45 },
+    whale: { cycle: 15 * 60, dur: 8, chance: .35 },
+  };
+  const seenLife = {};
+  function seaTick() {
+    const box = document.querySelector('.bs-life'); if (!box) return;
+    const t = Date.now() / 1000;
+    for (const [k, c] of Object.entries(SEA_LIFE)) {
+      const el = box.querySelector('.bs-' + k); if (!el) continue;
+      const cyc = Math.floor(t / c.cycle), start = cyc * c.cycle + rnd(k + 'o' + cyc) * (c.cycle - c.dur);
+      const on = rnd(k + 'c' + cyc) < c.chance && t >= start && t < start + c.dur;
+      el.classList.toggle('on', on);
+      if (!on) continue;
+      const f = (t - start) / c.dur;
+      if (c.from != null) el.style.left = `calc(${(c.from + (c.to - c.from) * f).toFixed(2)} * var(--u))`;
+      else if (!el._placed || el._cyc !== cyc) { el.style.left = `calc(${(25 + rnd(k + 'x' + cyc) * 150).toFixed(1)} * var(--u))`; el._cyc = cyc; el._placed = true; }
+      if ((k === 'dolph' || k === 'whale') && seenLife[k] !== cyc) { seenLife[k] = cyc; ctx.toast(k === 'dolph' ? '🐬 Look — dolphins jumping out at sea!' : '🐋 A whale! Did you see it spout?', 3000); }
+    }
+  }
+
   // 📸 A little postcard of the two of you at this spot
   async function photoSpot() {
     const ph = phaseOf(localHour(skyTz()));
@@ -331,6 +359,7 @@ export function initOutside(ctx) {
 
   setInterval(() => { if (isOut(here())) applySky(); }, 60000);
   setInterval(() => { if (here() === 'woods' && !document.hidden) animalsTick(); }, 3500);
+  setInterval(() => { if (here() === 'beach' && !document.hidden) seaTick(); }, 1000);
 
   const skyHour = () => localHour(skyTz());
   return { skyHour, onBeach, crab, buildCastle, sceneHTML, applySky, windows, onShared, onWalk, canGo, neighbours, blockedMsg, arrived, travel, route, isOut, CLOSABLE: ['walkask', 'postcard'] };
