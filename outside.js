@@ -1,6 +1,6 @@
 // 🏡 Outside: the front yard (and later the beach and woods), travel rules, one shared sky, walking together.
 
-import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=19';
+import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=20';
 
 export const INDOOR = ['living', 'bedroom', 'kitchen', 'garden'];
 export const OUTDOOR = ['yard', 'beach', 'woods'];
@@ -146,8 +146,11 @@ export function initOutside(ctx) {
       el.classList.toggle('gone', !out);
       if (!out) continue;
       let x = x1 + rnd(day + id + 'x' + slot) * (x2 - x1), y = y1 + rnd(day + id + 'y' + slot) * (y2 - y1);
+      // Fed it? Then it trots after whoever fed it for a while
+      const fol = ctx.follower?.(id);
+      if (fol && x1 !== x2) { x = Math.max(8, Math.min(192, fol.x + 9)); y = Math.min(96, Math.max(60, fol.y + 1)); }
       // Shy: keep away from people (and run further if you just startled them)
-      for (const p of people) {
+      else for (const p of people) {
         const dx = x - p.x, dist = Math.hypot(dx, (y - p.y) * 1.2);
         const need = spooked[id] > Date.now() ? 45 : 20;
         if (x1 !== x2 && dist < need) x = Math.max(8, Math.min(192, x + (dx >= 0 ? 1 : -1) * (need - dist + 10)));
@@ -164,7 +167,7 @@ export function initOutside(ctx) {
     el.classList.remove('react'); void el.offsetWidth; el.classList.add('react', 'react-' + id.replace(/\d/, ''));
     setTimeout(() => el.classList.remove('react', 'react-' + id.replace(/\d/, '')), 1400);
     ctx.sfx.pop();
-    ctx.toast(REACT[id], 2200);
+    if (ctx.onAnimal) ctx.onAnimal(id); else ctx.toast(REACT[id], 2200);
     setTimeout(animalsTick, 500);
   }
 

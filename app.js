@@ -1,16 +1,17 @@
-import { createStore } from './store.js?v=19';
-import { createCall } from './call.js?v=19';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=19';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=19';
-import { initTV } from './tv.js?v=19';
-import { initGames } from './games.js?v=19';
-import { initPet } from './pet.js?v=19';
-import { cropPhoto } from './dp.js?v=19';
-import { initVmail } from './vmail.js?v=19';
-import { initOutside, INDOOR } from './outside.js?v=19';
-import { initFishing } from './fishing.js?v=19';
-import { initBeach } from './beach.js?v=19';
-import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=19';
+import { createStore } from './store.js?v=20';
+import { createCall } from './call.js?v=20';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=20';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=20';
+import { initTV } from './tv.js?v=20';
+import { initGames } from './games.js?v=20';
+import { initPet } from './pet.js?v=20';
+import { cropPhoto } from './dp.js?v=20';
+import { initVmail } from './vmail.js?v=20';
+import { initOutside, INDOOR } from './outside.js?v=20';
+import { initFishing } from './fishing.js?v=20';
+import { initBeach } from './beach.js?v=20';
+import { initWoods } from './woods.js?v=20';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=20';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -123,6 +124,14 @@ const SEED = {
     'seed-ypot': { t: 'emoji', v: '🪴', x: 88, y: 64, s: .6 },
   },
 };
+// Added with the woods activities (v4)
+const SEED4 = {
+  woods: {
+    'seed4-wtent': { t: 'furn', k: 'tent', x: 162, y: 80, c: '#ff9f1c' },
+    'seed4-wpicnic': { t: 'furn', k: 'picnic', x: 52, y: 93, c: '#e63946' },
+    'seed4-wbasket': { t: 'furn', k: 'basket', x: 66, y: 91, c: '#c8875a' },
+  },
+};
 // Added with the beach's extra activities (v3)
 const SEED3 = {
   beach: {
@@ -207,6 +216,9 @@ const FURN = {
   log: { label: 'Log bench', icon: '🪵', c: '#8d5a3b', html: '<div class="lg-body"></div><div class="lg-end"></div>' },
   icecart: { label: 'Ice-cream cart', icon: '🍦', c: '#ff99c8', tap: true, html: '<div class="ic-umb"></div><div class="ic-pole"></div><div class="ic-box"><span>🍦</span></div><div class="ic-wheel l"></div><div class="ic-wheel r"></div>' },
   lifeguard: { label: 'Lifeguard tower', icon: '🛟', c: '#e63946', html: '<div class="lg-roof"></div><div class="lg-cab"></div><div class="lg-leg l"></div><div class="lg-leg r"></div><div class="lg-ladder"></div><div class="lg-ring">🛟</div>' },
+  tent: { label: 'Tent', icon: '⛺', c: '#ff9f1c', html: '<div class="tn-body"></div><div class="tn-door"></div><div class="tn-flag"></div>' },
+  picnic: { label: 'Picnic blanket', icon: '🧺', c: '#e63946', html: '<div class="pc-cloth"></div>' },
+  basket: { label: 'Picnic basket', icon: '🧺', c: '#c8875a', tap: true, html: '<div class="pb-handle"></div><div class="pb-body"></div><div class="pb-lid"></div>' },
   hammock: { label: 'Hammock', icon: '🪢', c: '#ffb703', html: '<div class="hm-post l"></div><div class="hm-post r"></div><div class="hm-net"></div>' },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
@@ -224,6 +236,8 @@ const SEATS = {
   log: { front: [[-5, 5.5, 'sit'], [5, 5.5, 'sit']] },
   lifeguard: { front: [[0, 21, 'sit']] },
   hammock: { front: [[-5, 5, 'lie'], [5, 5, 'lie']] },
+  tent: { front: [[-5, 3, 'lie'], [5, 3, 'lie']] },
+  picnic: { front: [[-7, 1, 'sit'], [7, 1, 'sit']] },
 };
 const TURNABLE = { sofa: ['front', 'back', 'left', 'right'], chair: ['front', 'back', 'left', 'right'] };
 const TV_CHANNELS = ['', '🐠', '💕', '⚽', ''];
@@ -290,7 +304,7 @@ let drawHintShown = false;
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside = null, seasons = null, fishing = null, beach = null;
+let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside = null, seasons = null, fishing = null, beach = null, woods = null;
 const prevMood = {};
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
@@ -363,7 +377,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 19;
+const VERSION = 20;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -422,7 +436,7 @@ function showCard(html, mode, cls = '') {
   o.hidden = false;
   o.innerHTML = `<div class="card ${cls}">${html}</div>`;
 }
-function hideOverlay() { if (overlayMode === 'vmail') vmail?.closed(); if (overlayMode === 'fishing') fishing?.closed(); overlayMode = null; $('#overlay').hidden = true; $('#overlay').innerHTML = ''; }
+function hideOverlay() { if (overlayMode === 'mallow') woods?.closed(); if (overlayMode === 'vmail') vmail?.closed(); if (overlayMode === 'fishing') fishing?.closed(); overlayMode = null; $('#overlay').hidden = true; $('#overlay').innerHTML = ''; }
 
 function showRoomChoice() {
   showCard(`<div class="big bounce">🏠</div><h2>Our Room</h2>
@@ -571,6 +585,7 @@ async function enterRoom() {
     myTz: () => Intl.DateTimeFormat().resolvedOptions().timeZone, clock: tz => localTime(tz),
     sfx, logAct, color: id => prof(id).color,
     peopleHere: () => $$('.avatar').filter(a => a._x != null).map(a => ({ x: a._x, y: a._y })),
+    onAnimal: id => woods?.animalCard(id), follower: id => woods?.follower(id),
     pickSpot: () => { const a = S.avatars[me] || { x: 100, y: 85 }; return { x: +clamp(a.x + rand(-14, 14), 10, roomW() - 10).toFixed(1), y: +clamp(Math.max(a.y, 70) + rand(0, 8), 70, 96).toFixed(1) }; },
     addScenery: data => store.push(`${sp()}/items`, { s: 1, ...data, by: me, ts: store.now() }),
     faceImage: id => new Promise(res => { const src = pic(id); if (!src) return res(prof(id).face); const im = new Image(); im.onload = () => res(im); im.onerror = () => res(prof(id).face); im.src = src; }),
@@ -595,9 +610,18 @@ async function enterRoom() {
     partnerPos: () => { const a = avatarEl(other); return a && roomOf(other) === view && isOnline(other) ? { x: a._x, y: a._y } : null; },
     myAvatar: () => S.avatars[me], moveMe: upd => store.update(`avatars/${me}`, upd),
     placeFood: data => store.push(`${sp()}/items`, { ...data, ts: store.now() }),
-    eat: e => { const a = avatarEl(me); if (!a) return; spawnFx(e, a._x, a._y, 20, 'eat-dish'); [300, 700, 1100].forEach((t, i) => setTimeout(() => { sfx.munch(); spawnFx(i === 2 ? '❤️' : 'nom', a._x + (i - 1) * 6, a._y, 24, 'nom'); }, t)); },
+    eat: e => eatFx(e),
   });
   store.on('bottles', v => beach.onBottles(v));
+  woods = initWoods({
+    $, esc, sfx, store, me: () => me, other: () => other, view: () => view, called, ago, toast, showCard, hideOverlay, spawnFx, logAct,
+    myPos: () => { const a = avatarEl(me); return a ? { x: a._x, y: a._y } : { x: 100, y: 85 }; },
+    posOf: id => { const a = avatarEl(id); return a && roomOf(id) === view && (id === me || isOnline(id)) ? { x: a._x, y: a._y } : null; },
+    partnerHere: () => isOnline(other) && roomOf(other) === view,
+    eat: e => eatFx(e),
+    fireOut: () => { if (lastFire) store.update(`${sp()}/items/${lastFire}`, { lit: null }); sfx.swish(); toast('💨 Fire’s out', 1500); },
+  });
+  store.on('woods', v => woods.onData(v));
   store.on('beachball', v => beach.onBall(v));
   store.on('fishing/best', v => fishing.onBest(v));
   store.on('outside', v => outside.onShared(v));
@@ -658,8 +682,9 @@ async function openSpace(rid) {
   $('#items').innerHTML = '';
   $('#stage').classList.remove(...Object.keys(ROOMS).map(r => 'rm-' + r));   // clear every room's look
   $('#stage').classList.add('rm-' + rid);
-  $('#scene').innerHTML = (outside?.sceneHTML(rid) || '') + (rid === 'beach' && beach ? beach.sceneHTML() : '');
+  $('#scene').innerHTML = (outside?.sceneHTML(rid) || '') + (rid === 'beach' && beach ? beach.sceneHTML() : '') + (rid === 'woods' && woods ? woods.sceneHTML() : '');
   if (rid === 'beach') beach?.entered();
+  woods?.render();
   outside?.applySky();
   seasons?.refresh();
   $('.door-sign').textContent = '🚪 Rooms';
@@ -677,6 +702,10 @@ async function openSpace(rid) {
     upd.seedv = 3;
     for (const [k, v] of Object.entries(SEED3[rid] || {})) upd[`items/${k}`] = { s: 1, ...v, ts: 0 };
     if (rid === 'beach') upd['items/seed-bball'] = null;   // the volleyball is a real ball now
+  }
+  if ((seedv || 0) < 4) {
+    upd.seedv = 4;
+    for (const [k, v] of Object.entries(SEED4[rid] || {})) upd[`items/${k}`] = { s: 1, ...v, ts: 0 };
   }
   // The house got a garage: nudge the yard's apple tree out of its way (once, only if nobody moved it)
   if (rid === 'yard' && seeded) { const tr = await store.once(`${sp()}/items/seed-ytree`); if (tr && tr.x === 160 && tr.y === 74) upd['items/seed-ytree/x'] = 180; }
@@ -1234,7 +1263,7 @@ function setupStage() {
   const stage = $('#stage');
   stage.addEventListener('click', e => {
     if (stage._panned) { stage._panned = false; return; }
-    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go], [data-fish], #fest-btns, [data-ball], .bh-spot, .bh-bottle')) return;
+    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go], [data-fish], #fest-btns, [data-ball], .bh-spot, .bh-bottle, .wd-oak, .wd-found, .wd-shoot, .ws-animal')) return;
     const hadEmote = !$('#emotebar').hidden;
     const prevTarget = emoteTarget;
     hideEmotebar();
@@ -1303,6 +1332,12 @@ function nearestSeat(id, p) {
   for (let i = 0; i < n; i++) { const d = Math.abs(seatPos(id, i).x - p.x); if (d < bd) { bd = d; best = i; } }
   return best;
 }
+function eatFx(e) {
+  const a = avatarEl(me); if (!a) return;
+  spawnFx(e, a._x, a._y, 20, 'eat-dish');
+  [300, 700, 1100].forEach((t, i) => setTimeout(() => { sfx.munch(); spawnFx(i === 2 ? '❤️' : 'nom', a._x + (i - 1) * 6, a._y, 24, 'nom'); }, t));
+}
+let lastFire = null;
 function tapItem(id, p) {
   const it = S.items[id]; if (!it) return;
   if (it.t === 'photo') return showPhoto(it);
@@ -1332,8 +1367,11 @@ function tapItem(id, p) {
   if (it.k === 'vmail') return vmail?.open();
   if (it.k === 'bucket') return outside.buildCastle();
   if (it.k === 'icecart') return beach?.iceMenu();
+  if (it.k === 'basket') return woods?.picnic();
   if (it.k === 'campfire') {
     const lit = it.lit && store.now() - it.lit < HOUR;
+    lastFire = id;
+    if (lit && woods?.campfireMenu(true)) return;
     store.update(`${sp()}/items/${id}`, { lit: lit ? null : store.now() });
     if (!lit) { sfx.sizzle(); logAct('fire', 'lit the campfire in the woods 🔥'); } else sfx.swish();
     return toast(lit ? '💨 Fire’s out' : '🔥 Cosy! Sit on a log and warm up (it burns for an hour)', 2600);
@@ -2372,6 +2410,7 @@ function route(d, t) {
   if (seasons?.route(d)) return;
   if (fishing?.route(d)) return;
   if (beach?.route(d)) return;
+  if (woods?.route(d)) return;
   if (d.action === 'pet') { closePanel(); return pet?.openMain(); }
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
@@ -2534,7 +2573,7 @@ document.addEventListener('change', e => {
 });
 
 const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv', 'mood', 'bed', 'bouquet', 'chess', 'doodle'];
-const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask' || overlayMode === 'postcard' || overlayMode === 'fest' || overlayMode === 'fishing' || beach?.CLOSABLE.includes(overlayMode));
+const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask' || overlayMode === 'postcard' || overlayMode === 'fest' || overlayMode === 'fishing' || beach?.CLOSABLE.includes(overlayMode) || woods?.CLOSABLE.includes(overlayMode));
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
 

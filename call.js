@@ -2,7 +2,7 @@
 // Shared state:  /call = { id, by, ts, members: { [who]: joinedAt } }
 // Signaling:     /callsig/{callId}/{from}_{to} = { offer, answer, ice: { [who]: {…candidates} } }
 // The newest person to join always sends the offers, so two phones never offer to each other at once.
-import { CONFIG } from './config.js?v=19';
+import { CONFIG } from './config.js?v=20';
 
 export function createCall(store, me, ui) {
   const iceServers = [

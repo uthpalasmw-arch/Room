@@ -5,7 +5,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const rand = (a, b) => a + Math.random() * (b - a);
 const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
-export const CATS = [['drinks', '☕ Drinks'], ['breakfast', '🥞 Breakfast'], ['meals', '🍝 Meals'], ['lanka', '🇱🇰 Sri Lankan'], ['desserts', '🎂 Desserts'], ['snacks', '🍿 Snacks'], ['catch', '🎣 Seafood']];
+export const CATS = [['drinks', '☕ Drinks'], ['breakfast', '🥞 Breakfast'], ['meals', '🍝 Meals'], ['lanka', '🇱🇰 Sri Lankan'], ['desserts', '🎂 Desserts'], ['snacks', '🍿 Snacks'], ['catch', '🎣 Catch & forage']];
 // Which recipe tab each appliance opens
 export const APPLIANCE_CAT = { fridge: 'fridge', kettle: 'drinks', coffee: 'drinks', blender: 'drinks', toaster: 'breakfast', stove: 'meals', microwave: 'snacks', sink: 'all', counter: 'all', wcabinet: 'all' };
 
@@ -71,6 +71,9 @@ export const RECIPES = [
   { id: 'hbc', n: 'Hot Butter Cuttlefish', e: '🦑', cat: 'catch', hot: true, uses: ['🦑', '🐙'], steps: [G('🦑', '🧈', '🌶️', '🌾', '🧄'), TAP('Slice into rings', '🦑', 6, '⭕'), SWIPE('Coat in batter', '🦑', 4), HEAT('Deep fry', '🍳', '🦑', 1.1), CIR('Toss in butter & chilli', '🧈', 2)] },
   { id: 'devilprawn', n: 'Devilled Prawns', e: '🦐', cat: 'catch', hot: true, uses: ['🦐'], steps: [G('🦐', '🧅', '🌶️', '🍅', '🧄'), TAP('Peel the prawns', '🦐', 6, '🦐'), TAP('Chop the onions', '🧅', 4, '🧅'), HEAT('Fry them', '🍳', '🦐'), CIR('Toss in the devilled sauce', '🌶️', 2)] },
   { id: 'crabcurry', n: 'Jaffna Crab Curry', e: '🦀', cat: 'catch', hot: true, uses: ['🦀'], steps: [G('🦀', '🥥', '🌶️', '🧅', '🧄'), TAP('Crack the claws', '🦀', 5, '💥'), CIR('Stir the spicy curry', '🍛', 3), HEAT('Simmer it', '🍲', '🦀', 0.9)] },
+  { id: 'berrypie', n: 'Wild Berry Pie', e: '🥧', cat: 'catch', uses: ['🫐', '🍓'], steps: [G('🫐', '🍓', '🌾', '🧈', '🍬'), SWIPE('Roll out the pastry', '🫓', 5), TAP('Scatter the berries', '🫐', 8, '🫐'), HEAT('Bake it', '♨️', '🥧', 0.9)] },
+  { id: 'mushsoup', n: 'Wild Mushroom Soup', e: '🍲', cat: 'catch', hot: true, uses: ['🍄'], steps: [G('🍄', '🧅', '🧈', '🥛'), TAP('Slice the mushrooms', '🍄', 6, '🍄'), HEAT('Sauté them', '🍳', '🍄'), HOLD('Pour in the milk', '🥛', '#f5efe0'), CIR('Stir', '🍲', 2)] },
+  { id: 'chestnuts', n: 'Roasted Chestnuts', e: '🌰', cat: 'catch', hot: true, uses: ['🌰'], steps: [G('🌰', '🧂'), TAP('Score the shells', '🌰', 6, '✂️'), HEAT('Roast them', '🔥', '🌰', 1.1)] },
   // 🍿 Snacks
   { id: 'popcorn', n: 'Popcorn', e: '🍿', cat: 'snacks', hot: true, steps: [G('🌽', '🧈', '🧂'), HEAT('Pop it — stop before it burns!', '📻', '🌽', 1.1), SWIPE('Shake the bag!', '🍿', 6, 'y')] },
   { id: 'fries', n: 'French Fries', e: '🍟', cat: 'snacks', hot: true, steps: [G('🥔', '🧂'), TAP('Cut the potatoes', '🥔', 8, '🍟'), HEAT('Fry them', '🍳', '🍟')] },
@@ -556,7 +559,7 @@ export function initKitchen(ctx) {
       <h4>Saved food</h4>
       ${list.length ? `<div class="fridge-grid">${list.map(([k, f]) => `<button data-fridge-item="${esc(k)}" class="${f.burnt ? 'burnt' : ''}"><span>${esc(f.v)}</span>${esc(f.n)}<small>${f.for ? `for ${esc(ctx.called(f.for))}` : `by ${madeBy(f)}`}</small></button>`).join('')}</div>`
         : '<p class="muted">Nothing saved yet. Cook something and choose 🧊 “Put it in the fridge”.</p>'}
-      ${Object.keys(ctx.catches()).length ? `<h4>🎣 Your catch</h4><div class="fridge-grid">${Object.entries(ctx.catches()).map(([k, c]) => `<button data-catch-item="${esc(k)}"><span>${esc(c.e)}</span>${esc(c.n)}<small>${c.cm ? c.cm + ' cm · ' : ''}by ${esc(ctx.called(c.by))}</small></button>`).join('')}</div>` : ''}
+      ${Object.keys(ctx.catches()).length ? `<h4>🎣 Caught & picked</h4><div class="fridge-grid">${Object.entries(ctx.catches()).map(([k, c]) => `<button data-catch-item="${esc(k)}"><span>${esc(c.e)}</span>${esc(c.n)}<small>${c.cm ? c.cm + ' cm · ' : ''}by ${esc(ctx.called(c.by))}</small></button>`).join('')}</div>` : ''}
       <h4>Always stocked</h4>
       <div class="fridge-grid">${SNACKS.map(([e, n], i) => `<button data-snack="${i}"><span>${e}</span>${n}</button>`).join('')}</div>`, 'fridge', 'cook');
   }
@@ -579,7 +582,7 @@ export function initKitchen(ctx) {
     const c = ctx.catches()[k]; if (!c) return openFridge();
     const recipes = RECIPES.filter(r => r.uses?.includes(c.e));
     ctx.showCard(`<div class="cook-head"><span></span><div></div><button class="x" data-fridge-open aria-label="Back">←</button></div>
-      <div class="result-dish">${esc(c.e)}</div><h2>${esc(c.n)}</h2><p class="muted">${c.cm ? `${c.cm} cm · ` : ''}caught by ${esc(ctx.called(c.by))} ${c.where === 'stream' ? 'in the stream' : 'at the beach'} · ${ctx.ago(c.ts)}</p>
+      <div class="result-dish">${esc(c.e)}</div><h2>${esc(c.n)}</h2><p class="muted">${c.cm ? `${c.cm} cm · ` : ''}${c.where === 'woods' ? 'picked' : 'caught'} by ${esc(ctx.called(c.by))} ${c.where === 'stream' ? 'in the stream' : c.where === 'woods' ? 'in the woods' : 'at the beach'} · ${ctx.ago(c.ts)}</p>
       <div class="stack">${recipes.map(r => `<button class="btn wide" data-recipe="${r.id}">${r.e} Cook ${esc(r.n)}</button>`).join('')}
         ${ctx.hasPet?.() ? `<button class="btn ghost wide" data-catch-pet="${esc(k)}">🐾 Give it to ${esc(ctx.petName())}</button>` : ''}
         <button class="btn ghost wide" data-catch-bin="${esc(k)}">🗑️ Throw it away</button></div>`, 'fridge-item', 'cook');
