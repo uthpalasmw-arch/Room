@@ -1,17 +1,17 @@
-import { createStore } from './store.js?v=21';
-import { createCall } from './call.js?v=21';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=21';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=21';
-import { initTV } from './tv.js?v=21';
-import { initGames } from './games.js?v=21';
-import { initPet } from './pet.js?v=21';
-import { cropPhoto } from './dp.js?v=21';
-import { initVmail } from './vmail.js?v=21';
-import { initOutside, INDOOR } from './outside.js?v=21';
-import { initFishing } from './fishing.js?v=21';
-import { initBeach } from './beach.js?v=21';
-import { initWoods } from './woods.js?v=21';
-import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=21';
+import { createStore } from './store.js?v=22';
+import { createCall } from './call.js?v=22';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=22';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=22';
+import { initTV } from './tv.js?v=22';
+import { initGames } from './games.js?v=22';
+import { initPet } from './pet.js?v=22';
+import { cropPhoto } from './dp.js?v=22';
+import { initVmail } from './vmail.js?v=22';
+import { initOutside, INDOOR } from './outside.js?v=22';
+import { initFishing } from './fishing.js?v=22';
+import { initBeach } from './beach.js?v=22';
+import { initWoods } from './woods.js?v=22';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=22';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -411,7 +411,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 21;
+const VERSION = 22;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -626,7 +626,7 @@ async function enterRoom() {
     hangPhoto: async d => {
       const pid = store.newKey('photos');
       await store.set(`photos/${pid}`, { d, by: me, ts: store.now() });
-      store.push('spaces/living/items', { t: 'photo', pid, f: 'polaroid', cap: 'Beach day 🏖️', x: 60 + rand(-20, 60), y: rand(24, 34), s: 1, by: me, ts: store.now() });
+      store.push('spaces/living/items', { t: 'photo', pid, f: 'polaroid', cap: `${ROOMS[view]?.name || 'Outside'} 📸`, x: 60 + rand(-20, 60), y: rand(24, 34), s: 1, by: me, ts: store.now() });
       toast('🖼️ It’s hanging in the living room!'); logAct('postcard', 'hung a beach photo in the living room 📸');
     },
   });

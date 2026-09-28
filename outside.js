@@ -1,6 +1,6 @@
 // 🏡 Outside: the front yard (and later the beach and woods), travel rules, one shared sky, walking together.
 
-import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=21';
+import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=22';
 
 export const INDOOR = ['living', 'bedroom', 'kitchen', 'garden'];
 export const OUTDOOR = ['yard', 'beach', 'woods'];
@@ -50,6 +50,7 @@ const YARD = `
   <i class="ys-plight" style="left:calc(90 * var(--u));top:70%"></i><i class="ys-plight" style="left:calc(110 * var(--u));top:70%"></i>
   <i class="ys-plight" style="left:calc(87 * var(--u));top:84%"></i><i class="ys-plight" style="left:calc(113 * var(--u));top:84%"></i>
   <div class="ys-fence l"></div><div class="ys-fence r"></div>
+  <button class="bs-photo" data-photo-spot style="left:calc(145 * var(--u));top:calc(66% - 16 * var(--u))" aria-label="Photo spot"><b>📸</b><span>Photo spot</span></button>
   <button class="os-sign l" data-go="woods"><b>← 🌲 Woods</b><i></i></button>
   <button class="os-sign r" data-go="beach"><b>Beach 🏖️ →</b><i></i></button>`;
 
@@ -74,6 +75,7 @@ const WOODS = `
   ${[[4, 30, 1.25], [26, 34, 1], [52, 29, 1.1], [150, 30, 1.2], [176, 33, 1], [196, 29, 1.3]].map(([x, b, s]) => `<div class="ws-tree" style="left:calc(${x} * var(--u));bottom:${b}%;--ts:${s}"><i class="tk"></i><b>🌲</b></div>`).join('')}
   <div class="ws-flies">${Array.from({ length: 14 }, (_, i) => `<i style="left:calc(${(7 + i * 13.5) % 196} * var(--u));top:${55 + (i * 37) % 38}%;animation-delay:-${(i * 0.7).toFixed(1)}s"></i>`).join('')}</div>
   <div class="ws-animals"></div>
+  <button class="bs-photo" data-photo-spot style="left:calc(20 * var(--u));top:calc(66% - 16 * var(--u))" aria-label="Photo spot"><b>📸</b><span>Photo spot</span></button>
   <button class="os-sign r" data-go="yard"><b>Home 🏡 →</b><i></i></button>`;
 
 // Woodland animals: [emoji, when they're about, home zone x1-x2, y1-y2 (%), size]
@@ -103,7 +105,7 @@ function weatherAt(t = Date.now()) {
     if (rnd('snow' + block) < chance) return 'snow';
   }
   const wet = b => rnd('rain' + b) < 0.16;
-  if (wet(block)) return 'rain';
+  if (wet(block)) return rnd('storm' + block) < 0.45 ? 'storm' : 'rain';
   if (wet(prev) && !wet(block)) return 'rainbow';
   return 'clear';
 }
@@ -126,7 +128,7 @@ export function initOutside(ctx) {
 
   function sceneHTML(rm) {
     const html = rm === 'yard' ? YARD : rm === 'beach' ? BEACH : rm === 'woods' ? WOODS : '';
-    return html ? html + skyExtras(rm) + '<div class="wx-rain"></div><div class="wx-snow"></div><div class="wx-rainbow"></div>' : '';
+    return html ? html + skyExtras(rm) + '<div class="wx-bolt"></div><div class="wx-flash"></div><div class="wx-rain"></div><div class="wx-snow"></div><div class="wx-rainbow"></div>' : '';
   }
 
   // ── 🌲 Woods: animals wander their patch (same plan on both phones), shy of people ──
@@ -177,10 +179,11 @@ export function initOutside(ctx) {
   function applyWeather() {
     const st = $('#stage'), out = isOut(here());
     const wx = out ? weatherAt() : 'clear';
-    st.classList.toggle('wx-rainy', wx === 'rain');
+    st.classList.toggle('wx-rainy', wx === 'rain' || wx === 'storm');
+    st.classList.toggle('wx-storm', wx === 'storm');
     st.classList.toggle('wx-snowy', wx === 'snow');
     st.classList.toggle('wx-bow', wx === 'rainbow' && phaseOf(localHour(skyTz())) !== 'night');
-    if (out && wx !== lastWx && lastWx !== null) ctx.toast(wx === 'rain' ? '🌧️ It’s starting to rain!' : wx === 'snow' ? '❄️ It’s snowing!' : wx === 'rainbow' ? '🌈 The rain stopped — look, a rainbow!' : '☀️ The sky is clearing up', 3000);
+    if (out && wx !== lastWx && lastWx !== null) ctx.toast(wx === 'storm' ? '⛈️ A thunderstorm is rolling in!' : wx === 'rain' ? '🌧️ It’s starting to rain!' : wx === 'snow' ? '❄️ It’s snowing!' : wx === 'rainbow' ? '🌈 The rain stopped — look, a rainbow!' : '☀️ The sky is clearing up', 3000);
     lastWx = out ? wx : null;
     return wx;
   }
@@ -214,6 +217,24 @@ export function initOutside(ctx) {
     ctx.sfx.yay();
     ctx.logAct('castle', 'built a sandcastle at the beach 🏰 (the tide takes it tomorrow)');
   }
+  // ⚡ Lightning & thunder during storms — on the same seconds for both phones
+  function lightning() {
+    if (!isOut(here()) || document.hidden || !$('#stage').classList.contains('wx-storm')) return;
+    const t = Math.floor(Date.now() / 1000), w = Math.floor(t / 7);
+    if (t % 7 !== 0 || rnd('flash' + w) > 0.6) return;
+    const flash = document.querySelector('.wx-flash'), bolt = document.querySelector('.wx-bolt');
+    if (bolt) {
+      const x = 15 + rnd('bx' + w) * 170;
+      let pts = '', y = 0, xx = 20;
+      for (let i = 0; i < 7; i++) { pts += `${xx},${y} `; y += 14 + rnd('by' + w + i) * 6; xx = 20 + (rnd('bz' + w + i) - .5) * 26; }
+      bolt.style.left = `calc(${x.toFixed(0)} * var(--u))`;
+      bolt.innerHTML = `<svg viewBox="0 0 40 110" preserveAspectRatio="none"><polyline points="${pts}" /></svg>`;
+      bolt.classList.remove('on'); void bolt.offsetWidth; bolt.classList.add('on');
+    }
+    if (flash) { flash.classList.remove('on'); void flash.offsetWidth; flash.classList.add('on'); }
+    setTimeout(() => ctx.sfx.thunder?.(), 900 + rnd('td' + w) * 900);
+  }
+
   // 🚢 Life out at sea — the same schedule on both phones, so you spot the dolphins together
   const SEA_LIFE = {
     ship: { cycle: 9 * 60, dur: 110, chance: .7, from: 215, to: -35 },
@@ -238,8 +259,45 @@ export function initOutside(ctx) {
     }
   }
 
-  // 📸 A little postcard of the two of you at this spot
+  // 📸 A real snapshot of this moment (people, things, weather, sky) — falls back to a drawn postcard
+  let snapLib = null;
   async function photoSpot() {
+    ctx.toast('📸 Say cheese!', 1200);
+    ctx.hideOverlay();
+    await new Promise(r => setTimeout(r, 350));
+    try {
+      snapLib ??= await import('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm');
+      const st = $('#stage');
+      const hide = new Set(['sky-chip', 'act-chip', 'fest-btns', 'vm-float', 'gift-hint', 'fade', 'tvctl', 'ytwrap', 'emotebar', 'itembar', 'power-timer']);
+      const opts = { pixelRatio: Math.min(1.5, devicePixelRatio || 1), skipFonts: true, backgroundColor: '#1f1540',
+        filter: n => !(n.id && hide.has(n.id)) && !(n.classList && (n.classList.contains('zoombar') || n.classList.contains('pan-hint') || n.classList.contains('bs-photo'))) };
+      await snapLib.toCanvas(st, opts);                 // first pass warms up images (Safari needs it)
+      const shot = await snapLib.toCanvas(st, opts);
+      if (!shot.width || shot.width < 50) throw new Error('empty');
+      const c = document.createElement('canvas'), bar = Math.round(shot.width * .09);
+      c.width = shot.width; c.height = shot.height + bar;
+      const g = c.getContext('2d');
+      g.drawImage(shot, 0, 0);
+      g.fillStyle = '#fff'; g.fillRect(0, shot.height, c.width, bar);
+      g.fillStyle = '#2a2140'; g.textAlign = 'center'; g.font = `600 ${Math.round(bar * .4)}px Fredoka, sans-serif`;
+      const people = ['a', 'b'].filter(id => ctx.joined(id) && (id === ctx.me() || (ctx.isOnline(id) && ctx.roomOf(id) === here())));
+      g.fillText(`${ctx.roomName(here())} · ${people.map(id => ctx.called(id)).join(' & ')} · ${new Date().toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}`, c.width / 2, shot.height + bar * .62);
+      showPhoto(c.toDataURL('image/jpeg', 0.82));
+    } catch (e) {
+      console.warn('snapshot failed, drawing a postcard instead', e);
+      postcard();
+    }
+  }
+  function showPhoto(url) {
+    ctx.showCard(`<h2>📸 Say cheese!</h2><img class="bs-postcard" src="${url}" alt="Photo of this moment">
+      <div class="row" style="justify-content:center;margin-top:12px;flex-wrap:wrap"><a class="btn ghost small" href="${url}" download="our-room-photo.jpg">💾 Save</a>
+      <button class="btn small" data-photo-hang>🖼️ Hang it at home</button></div>
+      <button class="btn ghost wide small" style="margin-top:8px" data-dismiss>Close</button>`, 'postcard');
+    lastPhoto = url;
+    ctx.sfx.pop();
+  }
+  // The old drawn postcard, used if the real snapshot isn't possible on this phone
+  async function postcard() {
     const ph = phaseOf(localHour(skyTz()));
     const people = ['a', 'b'].filter(id => ctx.joined(id) && (id === ctx.me() || (ctx.isOnline(id) && ctx.roomOf(id) === here())));
     const c = document.createElement('canvas'); c.width = 720; c.height = 540;
@@ -266,13 +324,7 @@ export function initOutside(ctx) {
     g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 500, 720, 40);
     g.fillStyle = '#fff'; g.font = '600 24px Fredoka, sans-serif';
     g.fillText(`🏖️ ${people.map(id => ctx.called(id)).join(' & ')} · ${new Date().toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}`, 360, 528);
-    const url = c.toDataURL('image/jpeg', 0.82);
-    ctx.showCard(`<h2>📸 Say cheese!</h2><img class="bs-postcard" src="${url}" alt="Beach photo">
-      <div class="row" style="justify-content:center;margin-top:12px;flex-wrap:wrap"><a class="btn ghost small" href="${url}" download="our-beach-photo.jpg">💾 Save</a>
-      <button class="btn small" data-photo-hang>🖼️ Hang it at home</button></div>
-      <button class="btn ghost wide small" style="margin-top:8px" data-dismiss>Close</button>`, 'postcard');
-    lastPhoto = url;
-    ctx.sfx.pop();
+    showPhoto(c.toDataURL('image/jpeg', 0.82));
   }
   let lastPhoto = null;
 
@@ -289,7 +341,7 @@ export function initOutside(ctx) {
     const who = shared?.by ? `${ctx.called(shared.by)}’s time` : 'your time';
     const wx = applyWeather();
     const xmas = isActive('christmas') && isChristmasDay() ? ' · 🎄 Merry Christmas!' : '';
-    chip.textContent = `${PHASE_LABEL[ph]}${wx === 'rain' ? ' · 🌧️ Rain' : wx === 'snow' ? ' · ❄️ Snow' : wx === 'rainbow' ? ' · 🌈' : ''}${xmas} · ${ctx.clock(skyTz())} · ${who}`;
+    chip.textContent = `${PHASE_LABEL[ph]}${wx === 'storm' ? ' · ⛈️ Storm' : wx === 'rain' ? ' · 🌧️ Rain' : wx === 'snow' ? ' · ❄️ Snow' : wx === 'rainbow' ? ' · 🌈' : ''}${xmas} · ${ctx.clock(skyTz())} · ${who}`;
     animalsTick();
     windows();
     renderShells();
@@ -365,6 +417,7 @@ export function initOutside(ctx) {
   setInterval(() => { if (here() === 'beach') renderShells(); }, 5 * 60000);
   setInterval(() => { if (here() === 'woods' && !document.hidden) animalsTick(); }, 3500);
   setInterval(() => { if (here() === 'beach' && !document.hidden) seaTick(); }, 1000);
+  setInterval(lightning, 1000);
 
   const skyHour = () => localHour(skyTz());
   return { skyHour, onBeach, crab, buildCastle, sceneHTML, applySky, windows, onShared, onWalk, canGo, neighbours, blockedMsg, arrived, travel, route, isOut, CLOSABLE: ['walkask', 'postcard'] };

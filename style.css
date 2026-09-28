@@ -1737,3 +1737,18 @@ button.game:active { transform: scale(.98); }
 .k-shellchime .sc-str::after { content: '🐚'; position: absolute; left: calc(-1.2 * var(--u)); bottom: calc(-2.4 * var(--u)); font-size: calc(2.6 * var(--u)); }
 .k-shellchime .s1 { left: 15%; height: calc(7 * var(--u)); } .k-shellchime .s2 { left: 38%; height: calc(9 * var(--u)); animation-delay: -.7s; } .k-shellchime .s3 { left: 61%; height: calc(6 * var(--u)); animation-delay: -1.4s; } .k-shellchime .s4 { left: 84%; height: calc(8 * var(--u)); animation-delay: -2s; }
 .item.chiming .sc-str { animation: kd-swing .35s ease-in-out 6; }
+
+/* ⛈️ storms */
+.wx-flash { display: none; position: absolute; inset: 0; z-index: 5100; pointer-events: none; background: #fff; opacity: 0; }
+.wx-storm .wx-flash { display: block; }
+.wx-flash.on { animation: wx-flash .9s ease-out; }
+@keyframes wx-flash { 0% { opacity: .85; } 10% { opacity: .1; } 18% { opacity: .7; } 100% { opacity: 0; } }
+.wx-bolt { display: none; position: absolute; top: 0; width: calc(20 * var(--u)); height: 48%; z-index: 5050; pointer-events: none; opacity: 0; }
+.wx-storm .wx-bolt { display: block; }
+.wx-bolt svg { width: 100%; height: 100%; overflow: visible; }
+.wx-bolt polyline { fill: none; stroke: #fffbe0; stroke-width: 2.4; stroke-linejoin: round; filter: drop-shadow(0 0 3px #bfe3ff) drop-shadow(0 0 8px #8fc7ff); vector-effect: non-scaling-stroke; }
+.wx-bolt.on { animation: wx-bolt .6s ease-out; }
+@keyframes wx-bolt { 0%, 30% { opacity: 1; } 15% { opacity: .2; } 100% { opacity: 0; } }
+.wx-storm #wall { filter: saturate(.3) brightness(.55) !important; }
+.wx-storm .sky-clouds span { filter: grayscale(1) brightness(.5); }
+.wx-storm #floor { filter: brightness(.7); }
