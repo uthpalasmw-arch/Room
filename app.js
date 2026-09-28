@@ -1,9 +1,10 @@
-import { createStore } from './store.js?v=8';
-import { createCall } from './call.js?v=8';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=8';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=8';
-import { initTV } from './tv.js?v=8';
-import { initGames } from './games.js?v=8';
+import { createStore } from './store.js?v=9';
+import { createCall } from './call.js?v=9';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=9';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=9';
+import { initTV } from './tv.js?v=9';
+import { initGames } from './games.js?v=9';
+import { initPet } from './pet.js?v=9';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -207,6 +208,7 @@ const TIPS = [
   ['🌷', 'Plant flowers in the garden — water them and they bloom in 2 days'],
   ['😊', 'Tap yourself → 😊 to set your mood'],
   ['♟️', 'Play chess or Doodle Duel from the 🕹️ Games button'],
+  ['🐾', 'Adopt a pet from the 🐾 Pet button — tap it to cuddle, feed and play'],
 ];
 
 const DEFAULT_PROFILES = {
@@ -225,7 +227,7 @@ let panel = null, overlayMode = null, spaceUnsubs = [];
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let kitchen = null, tv = null, games = null;
+let kitchen = null, tv = null, games = null, pet = null;
 const prevMood = {};
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
@@ -290,7 +292,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 8;
+const VERSION = 9;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -481,12 +483,19 @@ async function enterRoom() {
   store.on('chess', v => games.onChess(v));
   store.on('doodle', v => games.onDoodle(v));
   store.on('doodleInk', v => games.onInk(v));
+  pet = initPet({
+    $, esc, sfx, store, UPCT, SEATS, itemZ, ux, U, swatches, lsGet, lsSet, toast, logAct, showCard, hideOverlay, spawnFx, avatarEl,
+    me: () => me, other: () => other, view: () => view, items: () => S.items, roomW, roomOf, isOnline, centerOn,
+    overlayMode: () => overlayMode, isVisitor: () => isVisitor, roomName: rm => ROOMS[rm]?.name || rm,
+    goRoom: rm => goThroughDoor(rm),
+  });
   store.on('garden', v => { S.garden = v || {}; $$('.item[data-kind="furn:flowerbed"]').forEach(renderBed); if (overlayMode === 'bed') showBed(openBedId); });
   setInterval(flyAround, 2600);
   setupCamera();
   setupStage();
   setupWallDrawing();
   await openSpace(view);
+  store.on('pet', v => pet.onPet(v));
 
   call = createCall(store, me, callUI);
   if (!isVisitor) store.on('visit', v => { S.visit = v; watchGuests(v?.code); if (panel === 'profile') renderProfilePanel(); });
@@ -535,6 +544,7 @@ async function openSpace(rid) {
   const mine = S.avatars[me];
   centerOn(mine?.rm === rid && mine.x != null ? mine.x : roomW() / 2 - 20);
   renderLook(); renderAvatars(); renderPresence(); renderBoard(); renderPower();
+  pet?.render(true);
 }
 
 function showRoomPicker() {
@@ -642,7 +652,7 @@ function setupCamera() {
   st.addEventListener('pointermove', e => {
     if (!ptrs.has(e.pointerId) || !g) return;
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (g.type === 'maybe' && Math.hypot(e.clientX - g.sx, e.clientY - g.sy) > 9) { g.type = 'pan'; st._panned = true; hideEmotebar(); }
+    if (g.type === 'maybe' && Math.hypot(e.clientX - g.sx, e.clientY - g.sy) > 9) { g.type = 'pan'; st._panned = true; hideEmotebar(); pet?.hideBar(); }
     if (g.type === 'pan') {
       cam.tx = g.tx + e.clientX - g.sx; cam.ty = g.ty + e.clientY - g.sy;
       clampCam(); applyCam(); positionItembar();
@@ -890,6 +900,7 @@ function playBonk(from, to, hit) {
       target.classList.remove('bonked'); void target.offsetWidth; target.classList.add('bonked');
       spawnFx('BONK!', clamp(tx, 22, roomW() - 22), ty, 26, 'bonk-word');
       dizzy(to);
+      pet?.scare();
       setTimeout(() => target.classList.remove('bonked'), 1300);
     } else {
       sfx.whiff();
@@ -1065,6 +1076,8 @@ function setupStage() {
     if (panel === 'draw') return;
     if (panel === 'decorate') { if (!e.target.closest('.item')) selectItem(null); return; }
     if (e.target.closest('.powerup')) return grabPower();
+    if (e.target.closest('.pet-sprite')) return pet?.tap();
+    pet?.hideBar();
 
     const av = e.target.closest('.avatar');
     if (av) {
@@ -2099,6 +2112,8 @@ function renderMini() {
 // ── Global click routing ─────────────────────────────────────
 function route(d, t) {
   if (kitchen?.route(d)) return;
+  if (pet?.route(d)) return;
+  if (d.action === 'pet') { closePanel(); return pet?.openMain(); }
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
   if ('visitYes' in d || 'visitNo' in d) return letVisitorIn('visitYes' in d);
@@ -2246,7 +2261,7 @@ document.addEventListener('change', e => {
 });
 
 const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv', 'mood', 'bed', 'bouquet', 'chess', 'doodle'];
-const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode));
+const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode));
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
 
