@@ -1,6 +1,6 @@
 // 🏡 Outside: the front yard (and later the beach and woods), travel rules, one shared sky, walking together.
 
-import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=22';
+import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=23';
 
 export const INDOOR = ['living', 'bedroom', 'kitchen', 'garden'];
 export const OUTDOOR = ['yard', 'beach', 'woods'];
@@ -66,7 +66,7 @@ const BEACH = `
   <div class="bs-shells"></div>
   <div class="bs-pier"><i class="post p1"></i><i class="post p2"></i><i class="post p3"></i></div>
   <button class="os-sign l" data-go="yard"><b>← 🏡 Home</b><i></i></button>
-  <button class="bs-photo" data-photo-spot aria-label="Photo spot"><b>📸</b><span>Photo spot</span></button>`;
+  <button class="bs-photo" data-photo-spot style="left:calc(134 * var(--u))" aria-label="Photo spot"><b>📸</b><span>Photo spot</span></button>`;
 
 const WOODS = `
   <div class="os-sun"></div><div class="os-moon"></div><div class="os-stars"></div>

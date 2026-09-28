@@ -1,17 +1,18 @@
-import { createStore } from './store.js?v=22';
-import { createCall } from './call.js?v=22';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=22';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=22';
-import { initTV } from './tv.js?v=22';
-import { initGames } from './games.js?v=22';
-import { initPet } from './pet.js?v=22';
-import { cropPhoto } from './dp.js?v=22';
-import { initVmail } from './vmail.js?v=22';
-import { initOutside, INDOOR } from './outside.js?v=22';
-import { initFishing } from './fishing.js?v=22';
-import { initBeach } from './beach.js?v=22';
-import { initWoods } from './woods.js?v=22';
-import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=22';
+import { createStore } from './store.js?v=23';
+import { createCall } from './call.js?v=23';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=23';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=23';
+import { initTV } from './tv.js?v=23';
+import { initGames } from './games.js?v=23';
+import { initPet } from './pet.js?v=23';
+import { cropPhoto } from './dp.js?v=23';
+import { initVmail } from './vmail.js?v=23';
+import { initOutside, INDOOR } from './outside.js?v=23';
+import { initFishing } from './fishing.js?v=23';
+import { initBeach } from './beach.js?v=23';
+import { initWoods } from './woods.js?v=23';
+import { initBillboard } from './billboard.js?v=23';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=23';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -338,7 +339,7 @@ let drawHintShown = false;
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside = null, seasons = null, fishing = null, beach = null, woods = null;
+let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside = null, seasons = null, fishing = null, beach = null, woods = null, billboard = null;
 const prevMood = {};
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
@@ -411,7 +412,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 22;
+const VERSION = 23;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -650,6 +651,7 @@ async function enterRoom() {
     eat: e => eatFx(e),
   });
   store.on('bottles', v => beach.onBottles(v));
+  billboard = initBillboard({ $, esc, showCard, lsGet, lsSet, tzOf: id => S.profiles?.[id]?.tz });
   woods = initWoods({
     $, esc, sfx, store, me: () => me, other: () => other, view: () => view, called, ago, toast, showCard, hideOverlay, spawnFx, logAct,
     myPos: () => { const a = avatarEl(me); return a ? { x: a._x, y: a._y } : { x: 100, y: 85 }; },
@@ -719,8 +721,8 @@ async function openSpace(rid) {
   $('#items').innerHTML = '';
   $('#stage').classList.remove(...Object.keys(ROOMS).map(r => 'rm-' + r));   // clear every room's look
   $('#stage').classList.add('rm-' + rid);
-  $('#scene').innerHTML = (outside?.sceneHTML(rid) || '') + (rid === 'beach' && beach ? beach.sceneHTML() : '') + (rid === 'woods' && woods ? woods.sceneHTML() : '');
-  if (rid === 'beach') beach?.entered();
+  $('#scene').innerHTML = (outside?.sceneHTML(rid) || '') + (rid === 'beach' && beach ? beach.sceneHTML() + (billboard?.sceneHTML() || '') : '') + (rid === 'woods' && woods ? woods.sceneHTML() : '');
+  if (rid === 'beach') { beach?.entered(); billboard?.render(); }
   woods?.render();
   outside?.applySky();
   seasons?.refresh();
@@ -1329,7 +1331,7 @@ function setupStage() {
   const stage = $('#stage');
   stage.addEventListener('click', e => {
     if (stage._panned) { stage._panned = false; return; }
-    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go], [data-fish], #fest-btns, #act-chip, [data-ball], .bh-spot, .bh-bottle, .wd-oak, .wd-found, .wd-shoot, .ws-animal')) return;
+    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go], [data-fish], #fest-btns, #act-chip, [data-billboard], [data-ball], .bh-spot, .bh-bottle, .wd-oak, .wd-found, .wd-shoot, .ws-animal')) return;
     const hadEmote = !$('#emotebar').hidden;
     const prevTarget = emoteTarget;
     hideEmotebar();
@@ -2494,6 +2496,7 @@ function route(d, t) {
   if (fishing?.route(d)) return;
   if (beach?.route(d)) return;
   if (woods?.route(d)) return;
+  if (billboard?.route(d)) return;
   if (d.action === 'pet') { closePanel(); return pet?.openMain(); }
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
@@ -2657,7 +2660,7 @@ document.addEventListener('change', e => {
 });
 
 const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv', 'mood', 'bed', 'bouquet', 'chess', 'doodle'];
-const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask' || overlayMode === 'postcard' || overlayMode === 'fest' || overlayMode === 'fishing' || beach?.CLOSABLE.includes(overlayMode) || woods?.CLOSABLE.includes(overlayMode));
+const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask' || overlayMode === 'postcard' || overlayMode === 'fest' || overlayMode === 'fishing' || beach?.CLOSABLE.includes(overlayMode) || woods?.CLOSABLE.includes(overlayMode) || overlayMode === 'billboard');
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
 

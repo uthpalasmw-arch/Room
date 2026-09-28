@@ -1752,3 +1752,21 @@ button.game:active { transform: scale(.98); }
 .wx-storm #wall { filter: saturate(.3) brightness(.55) !important; }
 .wx-storm .sky-clouds span { filter: grayscale(1) brightness(.5); }
 .wx-storm #floor { filter: brightness(.7); }
+
+/* ── 🎬 Billboard ── */
+.bb-board { position: absolute; left: calc(168 * var(--u)); bottom: 38%; width: calc(26 * var(--u)); height: calc(52 * var(--u)); }
+.bb-frame { position: absolute; left: 0; right: 0; top: 0; height: calc(38 * var(--u)); background: #2b2d42; border-radius: calc(1 * var(--u)); padding: calc(1.2 * var(--u)); box-shadow: 0 calc(1 * var(--u)) 0 rgba(0,0,0,.25); }
+.bb-screen { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: calc(.5 * var(--u)); background: #fff; }
+.bb-screen img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.bb-tag { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(230,57,70,.92); color: #fff; font: 700 calc(1.9 * var(--u)) 'Fredoka', sans-serif; text-align: center; padding: calc(.3 * var(--u)) 0; letter-spacing: .05em; }
+.bb-food { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(1 * var(--u)); padding: calc(1.4 * var(--u)); background: linear-gradient(160deg, var(--bb), #1b1b2f); color: #fff; text-align: center; }
+.bb-food span { font-size: calc(10 * var(--u)); line-height: 1; filter: drop-shadow(0 calc(.6 * var(--u)) 0 rgba(0,0,0,.3)); }
+.bb-food b { font: 700 calc(3 * var(--u)) 'Fredoka', sans-serif; line-height: 1.05; }
+.bb-food small { font: 500 calc(1.9 * var(--u)) 'Fredoka', sans-serif; opacity: .9; line-height: 1.15; }
+.bb-leg { position: absolute; bottom: 0; top: calc(37 * var(--u)); width: calc(1.6 * var(--u)); background: #6d6875; }
+.bb-leg.l { left: calc(5 * var(--u)); } .bb-leg.r { right: calc(5 * var(--u)); }
+.bb-lamp { position: absolute; top: calc(-2.2 * var(--u)); width: calc(4 * var(--u)); height: calc(1.6 * var(--u)); background: #2b2d42; border-radius: calc(.4 * var(--u)); }
+.bb-lamp.l { left: calc(3 * var(--u)); } .bb-lamp.r { right: calc(3 * var(--u)); }
+.sky-night .bb-lamp::after, .sky-sunset .bb-lamp::after { content: ''; position: absolute; left: 50%; top: 100%; width: calc(12 * var(--u)); height: calc(20 * var(--u)); transform: translateX(-50%); background: linear-gradient(rgba(255,240,180,.55), transparent); clip-path: polygon(35% 0, 65% 0, 100% 100%, 0 100%); pointer-events: none; }
+.sky-night .bb-leg { filter: brightness(.5); }
+.bb-poster { width: 60%; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.3); margin-top: 6px; }

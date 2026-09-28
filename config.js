@@ -18,4 +18,7 @@ export const CONFIG = {
   // Optional relay servers for voice calls. Only needed if calls
   // fail to connect on some mobile networks (see README.md → "Calls").
   turn: [],
+
+  // The Movie Database (themoviedb.org) API key — used for the movie posters on the beach billboard.
+  tmdb: '35ba8905fc4fa6684bacd4eb978a880f',
 };
