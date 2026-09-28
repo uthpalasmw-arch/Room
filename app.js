@@ -1,11 +1,12 @@
-import { createStore } from './store.js?v=11';
-import { createCall } from './call.js?v=11';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=11';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=11';
-import { initTV } from './tv.js?v=11';
-import { initGames } from './games.js?v=11';
-import { initPet } from './pet.js?v=11';
-import { cropPhoto } from './dp.js?v=11';
+import { createStore } from './store.js?v=12';
+import { createCall } from './call.js?v=12';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=12';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=12';
+import { initTV } from './tv.js?v=12';
+import { initGames } from './games.js?v=12';
+import { initPet } from './pet.js?v=12';
+import { cropPhoto } from './dp.js?v=12';
+import { initVmail } from './vmail.js?v=12';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -154,6 +155,7 @@ const FURN = {
   gbench: { label: 'Garden bench', icon: '🪵', c: '#c8875a', html: '<div class="bk"></div><div class="st"></div><div class="lg l1"></div><div class="lg l2"></div>' },
   pond: { label: 'Pond', icon: '🦆', c: '#4fc3f7', html: '<div class="water"><span class="duck">🦆</span><span class="fish">🐟</span><i class="pad a"></i><i class="pad b"></i></div>' },
   flowerbed: { label: 'Flower bed', icon: '🌷', c: '#8d5a3b', tap: true, html: '<div class="soil"></div>' + [0, 1, 2, 3].map(i => `<span class="plot" data-plot="${i}"></span>`).join('') },
+  vmail: { label: 'Answering machine', icon: '📼', c: '#6d6875', tap: true, html: '<div class="vm-base"></div><div class="vm-tape"><i></i><i></i></div><div class="vm-screen"><span class="vm-count">0</span></div><div class="vm-light"></div><div class="vm-keys"><i></i><i></i><i></i></div>' },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
 // Where characters sit or lie on furniture: [dx, height above the item's bottom, pose] in room units
@@ -209,6 +211,7 @@ const TIPS = [
   ['🌷', 'Plant flowers in the garden — water them and they bloom in 2 days'],
   ['😊', 'Tap yourself → 😊 to set your mood'],
   ['♟️', 'Play chess or Doodle Duel from the 🕹️ Games button'],
+  ['📼', 'Decorate → Furniture → Answering machine: leave a 15-second voice message'],
   ['🐾', 'Adopt a pet from the 🐾 Pet button — tap it to cuddle, feed and play'],
 ];
 
@@ -229,7 +232,7 @@ let drawHintShown = false;
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let kitchen = null, tv = null, games = null, pet = null;
+let kitchen = null, tv = null, games = null, pet = null, vmail = null;
 const prevMood = {};
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
@@ -302,7 +305,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 11;
+const VERSION = 12;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -361,7 +364,7 @@ function showCard(html, mode, cls = '') {
   o.hidden = false;
   o.innerHTML = `<div class="card ${cls}">${html}</div>`;
 }
-function hideOverlay() { overlayMode = null; $('#overlay').hidden = true; $('#overlay').innerHTML = ''; }
+function hideOverlay() { if (overlayMode === 'vmail') vmail?.closed(); overlayMode = null; $('#overlay').hidden = true; $('#overlay').innerHTML = ''; }
 
 function showRoomChoice() {
   showCard(`<div class="big bounce">🏠</div><h2>Our Room</h2>
@@ -509,6 +512,8 @@ async function enterRoom() {
   setupWallDrawing();
   await openSpace(view);
   store.on('pet', v => pet.onPet(v));
+  vmail = initVmail({ $, esc, sfx, store, me: () => me, other: () => other, called, ago, toast, showCard, hideOverlay, overlayMode: () => overlayMode, isVisitor: () => isVisitor });
+  store.on('vmail', v => vmail.onData(v));
 
   call = createCall(store, me, callUI);
   if (!isVisitor) store.on('visit', v => { S.visit = v; watchGuests(v?.code); if (panel === 'profile') renderProfilePanel(); });
@@ -1163,6 +1168,7 @@ function tapItem(id) {
     return;
   }
   if (it.k === 'tv') return tv.tapTV();
+  if (it.k === 'vmail') return vmail?.open();
   if (it.k === 'arcade') return openPanel('games');
   if (it.k === 'flowerbed') return showBed(id);
   if (it.k === 'floorlamp') return toggleLights();
@@ -1193,6 +1199,7 @@ function renderItems() {
     const flyer = it.t === 'emoji' && FLYERS.includes(it.v);
     el.classList.toggle('flyer', flyer);
     if (it.k === 'flowerbed') renderBed(el);
+    if (it.k === 'vmail') vmail?.decorate(el);
     if (it.t === 'food') kitchen?.renderFood(el, it);
     if (it.t === 'text') el.style.color = it.c || '#fff';
     if (it.t === 'furn') {
@@ -2148,6 +2155,7 @@ function renderMini() {
 function route(d, t) {
   if (kitchen?.route(d)) return;
   if (pet?.route(d)) return;
+  if (vmail?.route(d)) return;
   if (d.action === 'pet') { closePanel(); return pet?.openMain(); }
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
@@ -2300,7 +2308,7 @@ document.addEventListener('change', e => {
 });
 
 const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv', 'mood', 'bed', 'bouquet', 'chess', 'doodle'];
-const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode));
+const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail');
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
 

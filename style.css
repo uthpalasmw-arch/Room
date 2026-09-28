@@ -1144,3 +1144,32 @@ button.game:active { transform: scale(.98); }
 .dp-crop canvas { width: 100%; height: 100%; display: block; }
 .dp-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 200px rgba(20,12,40,.55); pointer-events: none; outline: 3px solid #fff; outline-offset: -3px; }
 .dp-zoom { width: min(260px, 70vw); accent-color: var(--ui); }
+
+/* ── 📼 Answering machine ── */
+.k-vmail { width: calc(18 * var(--u)); height: calc(9 * var(--u)); }
+.k-vmail .vm-base { inset: 0; background: var(--c); border-radius: calc(1.6 * var(--u)); box-shadow: inset 0 calc(-1 * var(--u)) 0 rgba(0,0,0,.2); }
+.k-vmail .vm-tape { left: calc(1.4 * var(--u)); top: calc(1.4 * var(--u)); width: calc(8 * var(--u)); height: calc(4.6 * var(--u)); background: #2b2d42; border-radius: calc(.8 * var(--u)); }
+.k-vmail .vm-tape i { top: calc(1.1 * var(--u)); width: calc(2.4 * var(--u)); height: calc(2.4 * var(--u)); border-radius: 50%; border: calc(.5 * var(--u)) dotted #f4f1fb; }
+.k-vmail .vm-tape i:first-child { left: calc(1 * var(--u)); } .k-vmail .vm-tape i:last-child { right: calc(1 * var(--u)); }
+.k-vmail .vm-screen { right: calc(1.4 * var(--u)); top: calc(1.4 * var(--u)); width: calc(5 * var(--u)); height: calc(3.4 * var(--u)); background: #9be15d; border-radius: calc(.5 * var(--u)); display: grid !important; place-items: center; box-shadow: inset 0 0 0 calc(.3 * var(--u)) rgba(0,0,0,.25); }
+.k-vmail .vm-count { font: 700 calc(2.6 * var(--u)) monospace; color: #1e3a0a; line-height: 1; }
+.k-vmail .vm-light { left: calc(10.6 * var(--u)); top: calc(1.8 * var(--u)); width: calc(1.4 * var(--u)); height: calc(1.4 * var(--u)); border-radius: 50%; background: #6b1d2a; }
+.k-vmail .vm-keys { right: calc(1.4 * var(--u)); bottom: calc(1.8 * var(--u)); width: calc(5 * var(--u)); height: calc(1.4 * var(--u)); }
+.k-vmail .vm-keys i { position: static !important; display: inline-block !important; width: calc(1.4 * var(--u)); height: calc(1.2 * var(--u)); margin-right: calc(.4 * var(--u)); background: #f4f1fb; border-radius: calc(.3 * var(--u)); }
+.item.vm-new .k-vmail .vm-light { background: #ff2d55; box-shadow: 0 0 calc(2 * var(--u)) #ff2d55; animation: vm-blink 1s steps(2) infinite; }
+.item.vm-sent .k-vmail .vm-light { background: #ffb703; box-shadow: 0 0 calc(1.2 * var(--u)) #ffb703; }
+.item.vm-new::after { content: '💌'; position: absolute; left: 50%; top: calc(-6 * var(--u)); font-size: calc(5 * var(--u)); transform: translateX(-50%); animation: vm-bob 1.2s ease-in-out infinite alternate; pointer-events: none; }
+@keyframes vm-blink { 50% { opacity: .25; } }
+@keyframes vm-bob { to { translate: 0 calc(-1.2 * var(--u)); } }
+.vm-card .vm-hero { font-size: 52px; line-height: 1; }
+.vm-small { font-size: 12px; margin: 8px 0; }
+.vm-row { justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+.vm-prog { height: 8px; border-radius: 99px; background: var(--soft); overflow: hidden; margin: 12px 0; }
+.vm-prog i { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--ui), var(--ui2)); transition: width .2s linear; }
+.vm-rec { margin: 10px auto 4px; width: 240px; max-width: 100%; height: 60px; border-radius: 14px; background: var(--soft); }
+.vm-rec canvas { width: 100%; height: 100%; display: block; }
+.vm-mic { --p: 0; width: 92px; height: 92px; border-radius: 50%; margin: 8px auto 0; display: grid; place-items: center; font-size: 38px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  background: conic-gradient(#ff2d55 calc(var(--p) * 360deg), var(--soft) 0); box-shadow: 0 4px 0 rgba(0,0,0,.12); }
+.vm-mic span { width: 76px; height: 76px; border-radius: 50%; background: #fff; display: grid; place-items: center; }
+.vm-mic.on span { background: #ffe3ea; animation: vm-pulse .8s ease-in-out infinite alternate; }
+@keyframes vm-pulse { to { transform: scale(.92); } }
