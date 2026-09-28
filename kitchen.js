@@ -616,7 +616,7 @@ export function initKitchen(ctx) {
       seenGifts.add(el.dataset.id);
       sfx.ding(); navigator.vibrate?.([80, 50, 80]);
       const giver = it.from ? esc(ctx.called(it.from)) : madeBy(it);
-      ctx.showCard(dishCard(it, it.by === 'fridge' ? `${giver} brought you this from the fridge 💝` : it.from && it.from !== it.by ? `${giver} gave you this 💝` : `${giver} made this for you 💝`,
+      ctx.showCard(dishCard(it, it.shop ? `${giver} got you this at ${esc(it.shop)} 💝` : it.by === 'fridge' ? `${giver} brought you this from the fridge 💝` : it.from && it.from !== it.by ? `${giver} gave you this 💝` : `${giver} made this for you 💝`,
         `<button class="btn wide" data-food-eat="${el.dataset.id}">😋 Eat it now</button><button class="btn ghost wide" data-dismiss>Later</button>`), 'food');
     }
     seenGifts.add(el.dataset.id);

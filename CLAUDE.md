@@ -23,6 +23,7 @@ chat, voice calls, cooking, TV, garden and games. Live at https://uthpalasmw-arc
 | `outside.js` | Outdoor areas (front yard; beach/woods), travel rules (outside ↔ inside only via the front door), shared sky (`/outside` = whoever went out first's time zone), walk together (`/walk`) |
 | `seasons.js` | Festivals (Halloween, Christmas, New Year, Sinhala & Tamil New Year, Vesak): date windows, temporary decoration pack button, sky extras; festival items carry `season` and are removed when it ends. Preview with `?fest=halloween|christmas|xmasday|newyear|slny|vesak` |
 | `fishing.js` | Fishing mini-game (pier at the beach, stream in the woods): catches go to `/catch` (fridge "Your catch" shelf → seafood recipes use them up), `/fishing/best` record |
+| `beach.js` | Beach fun: message in a bottle (`/bottles`, washes up after 12 h), volleyball (`/beachball`), surfing, kites, ice-cream cart |
 | `sfx.js` | Synthesized sound effects |
 | `dev-server.js` | `node dev-server.js` → http://localhost:5500 for local testing |
 

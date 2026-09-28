@@ -1,15 +1,16 @@
-import { createStore } from './store.js?v=18';
-import { createCall } from './call.js?v=18';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=18';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=18';
-import { initTV } from './tv.js?v=18';
-import { initGames } from './games.js?v=18';
-import { initPet } from './pet.js?v=18';
-import { cropPhoto } from './dp.js?v=18';
-import { initVmail } from './vmail.js?v=18';
-import { initOutside, INDOOR } from './outside.js?v=18';
-import { initFishing } from './fishing.js?v=18';
-import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=18';
+import { createStore } from './store.js?v=19';
+import { createCall } from './call.js?v=19';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=19';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=19';
+import { initTV } from './tv.js?v=19';
+import { initGames } from './games.js?v=19';
+import { initPet } from './pet.js?v=19';
+import { cropPhoto } from './dp.js?v=19';
+import { initVmail } from './vmail.js?v=19';
+import { initOutside, INDOOR } from './outside.js?v=19';
+import { initFishing } from './fishing.js?v=19';
+import { initBeach } from './beach.js?v=19';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=19';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -112,7 +113,6 @@ const SEED = {
     'seed-bchair1': { t: 'furn', k: 'deckchair', x: 118, y: 88, c: '#4f8cff' },
     'seed-bchair2': { t: 'furn', k: 'deckchair', x: 136, y: 88, c: '#ffb703' },
     'seed-bbucket': { t: 'furn', k: 'bucket', x: 160, y: 92, c: '#ff4d6d' },
-    'seed-bball': { t: 'emoji', v: '🏐', x: 34, y: 92, s: .6 },
   },
   yard: {
     'seed-ybench': { t: 'furn', k: 'gbench', x: 40, y: 84, c: '#c8875a' },
@@ -121,6 +121,15 @@ const SEED = {
     'seed-yflower1': { t: 'emoji', v: '🌷', x: 76, y: 66, s: .7 },
     'seed-yflower2': { t: 'emoji', v: '🌻', x: 124, y: 66, s: .7 },
     'seed-ypot': { t: 'emoji', v: '🪴', x: 88, y: 64, s: .6 },
+  },
+};
+// Added with the beach's extra activities (v3)
+const SEED3 = {
+  beach: {
+    'seed3-bice': { t: 'furn', k: 'icecart', x: 98, y: 72, c: '#ff99c8' },
+    'seed3-bguard': { t: 'furn', k: 'lifeguard', x: 44, y: 72, c: '#e63946' },
+    'seed3-bfire': { t: 'furn', k: 'campfire', x: 100, y: 96, c: '#ff7a59' },
+    'seed3-bham': { t: 'furn', k: 'hammock', x: 18, y: 80, c: '#ffb703' },
   },
 };
 // Added when the living room grew to two screens wide.
@@ -196,6 +205,9 @@ const FURN = {
   bucket: { label: 'Sand bucket', icon: '🪣', c: '#ff4d6d', tap: true, html: '<div class="bk-handle"></div><div class="bk-pail"></div><div class="bk-spade"></div>' },
   campfire: { label: 'Campfire', icon: '🔥', c: '#ff7a59', tap: true, html: '<div class="cf-glow"></div><div class="cf-stones"></div><div class="cf-wood"></div><div class="cf-flame f1"></div><div class="cf-flame f2"></div><div class="cf-flame f3"></div><div class="cf-smoke"></div>' },
   log: { label: 'Log bench', icon: '🪵', c: '#8d5a3b', html: '<div class="lg-body"></div><div class="lg-end"></div>' },
+  icecart: { label: 'Ice-cream cart', icon: '🍦', c: '#ff99c8', tap: true, html: '<div class="ic-umb"></div><div class="ic-pole"></div><div class="ic-box"><span>🍦</span></div><div class="ic-wheel l"></div><div class="ic-wheel r"></div>' },
+  lifeguard: { label: 'Lifeguard tower', icon: '🛟', c: '#e63946', html: '<div class="lg-roof"></div><div class="lg-cab"></div><div class="lg-leg l"></div><div class="lg-leg r"></div><div class="lg-ladder"></div><div class="lg-ring">🛟</div>' },
+  hammock: { label: 'Hammock', icon: '🪢', c: '#ffb703', html: '<div class="hm-post l"></div><div class="hm-post r"></div><div class="hm-net"></div>' },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
 Object.assign(FURN, SEASON_FURN);   // festival pieces (only offered in their festival's pack)
@@ -210,6 +222,8 @@ const SEATS = {
   towel: { front: [[-8, 1, 'lie'], [8, 1, 'lie']] },
   deckchair: { front: [[0, 5, 'sit']] },
   log: { front: [[-5, 5.5, 'sit'], [5, 5.5, 'sit']] },
+  lifeguard: { front: [[0, 21, 'sit']] },
+  hammock: { front: [[-5, 5, 'lie'], [5, 5, 'lie']] },
 };
 const TURNABLE = { sofa: ['front', 'back', 'left', 'right'], chair: ['front', 'back', 'left', 'right'] };
 const TV_CHANNELS = ['', '🐠', '💕', '⚽', ''];
@@ -276,7 +290,7 @@ let drawHintShown = false;
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside = null, seasons = null, fishing = null;
+let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside = null, seasons = null, fishing = null, beach = null;
 const prevMood = {};
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
@@ -349,7 +363,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 18;
+const VERSION = 19;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -575,6 +589,16 @@ async function enterRoom() {
     walkTo: (x, y, pier) => { store.update(`avatars/${me}`, { x, y, seat: null, pier: pier || null }); return new Promise(r => setTimeout(r, 900)); },
   });
   store.on('catch', v => { S.catch = v || {}; fishing.onCatch(v); });
+  beach = initBeach({
+    $, esc, sfx, store, me: () => me, other: () => other, view: () => view, called, ago, toast, showCard, hideOverlay, spawnFx, logAct,
+    myPos: () => { const a = avatarEl(me); return a ? { x: a._x, y: a._y } : { x: 100, y: 85 }; },
+    partnerPos: () => { const a = avatarEl(other); return a && roomOf(other) === view && isOnline(other) ? { x: a._x, y: a._y } : null; },
+    myAvatar: () => S.avatars[me], moveMe: upd => store.update(`avatars/${me}`, upd),
+    placeFood: data => store.push(`${sp()}/items`, { ...data, ts: store.now() }),
+    eat: e => { const a = avatarEl(me); if (!a) return; spawnFx(e, a._x, a._y, 20, 'eat-dish'); [300, 700, 1100].forEach((t, i) => setTimeout(() => { sfx.munch(); spawnFx(i === 2 ? '❤️' : 'nom', a._x + (i - 1) * 6, a._y, 24, 'nom'); }, t)); },
+  });
+  store.on('bottles', v => beach.onBottles(v));
+  store.on('beachball', v => beach.onBall(v));
   store.on('fishing/best', v => fishing.onBest(v));
   store.on('outside', v => outside.onShared(v));
   seasons = initSeasons({
@@ -634,7 +658,8 @@ async function openSpace(rid) {
   $('#items').innerHTML = '';
   $('#stage').classList.remove(...Object.keys(ROOMS).map(r => 'rm-' + r));   // clear every room's look
   $('#stage').classList.add('rm-' + rid);
-  $('#scene').innerHTML = outside?.sceneHTML(rid) || '';
+  $('#scene').innerHTML = (outside?.sceneHTML(rid) || '') + (rid === 'beach' && beach ? beach.sceneHTML() : '');
+  if (rid === 'beach') beach?.entered();
   outside?.applySky();
   seasons?.refresh();
   $('.door-sign').textContent = '🚪 Rooms';
@@ -647,6 +672,11 @@ async function openSpace(rid) {
     upd.seedv = 2;
     for (const [k, v] of Object.entries(SEED2[rid] || {})) upd[`items/${k}`] = { s: 1, ...v, ts: 0 };
     if (seeded && sofa && sofa.x === 50 && sofa.y === 95) Object.assign(upd, { 'items/seed-sofa/face': 'back', 'items/seed-sofa/x': 55, 'items/seed-sofa/y': 92 });
+  }
+  if ((seedv || 0) < 3) {
+    upd.seedv = 3;
+    for (const [k, v] of Object.entries(SEED3[rid] || {})) upd[`items/${k}`] = { s: 1, ...v, ts: 0 };
+    if (rid === 'beach') upd['items/seed-bball'] = null;   // the volleyball is a real ball now
   }
   // The house got a garage: nudge the yard's apple tree out of its way (once, only if nobody moved it)
   if (rid === 'yard' && seeded) { const tr = await store.once(`${sp()}/items/seed-ytree`); if (tr && tr.x === 160 && tr.y === 74) upd['items/seed-ytree/x'] = 180; }
@@ -893,7 +923,7 @@ function seatPos(itemId, idx) {
     x: it.x + dx * sc * flip, y: it.y - up * sc * UPCT, pose,
     z: pose === 'back' ? itemZ(it) - 1 : itemZ(it) + (pose === 'lie' ? 60 : 1),
     left: it.face === 'left' ? true : it.face === 'right' ? false : null,
-    blanket: it.k === 'bed' || it.k === 'towel' ? (it.c || FURN[it.k].c) : null,
+    blanket: ['bed', 'towel', 'hammock'].includes(it.k) ? (it.c || FURN[it.k].c) : null,
   };
 }
 function freeSeat(itemId, preferred = 0) {
@@ -923,7 +953,7 @@ function renderAvatars() {
     if (!el) {
       el = document.createElement('div');
       el.className = 'avatar'; el.dataset.id = id;
-      el.innerHTML = '<div class="bubble"></div><div class="body"><span class="face"></span><span class="hat"></span><span class="zzz">💤</span><span class="blanket"></span><span class="mood"></span></div><div class="tag"><b></b><small></small></div>';
+      el.innerHTML = '<div class="bubble"></div><div class="body"><span class="face"></span><span class="hat"></span><span class="zzz">💤</span><span class="blanket"></span><span class="mood"></span></div><div class="tag"><b></b><small></small></div><span class="av-kite"><i></i></span>';
       layer.append(el);
     }
     const online = id === me || isOnline(id);
@@ -945,6 +975,9 @@ function renderAvatars() {
     ['sit', 'back', 'lie', 'swing'].forEach(c => el.classList.toggle(c, seat?.pose === c));
     el.classList.toggle('swim', view === 'beach' && !seat && pos.y < 64 && !a?.pier);
     el.classList.toggle('fishing', !!a?.fishing && online);
+    el.classList.toggle('surf', view === 'beach' && !!a?.surf && store.now() - a.surf < 7000 && online);
+    el.classList.toggle('has-kite', view === 'beach' && !!a?.kite && online && !seat);
+    if (a?.kite) el.style.setProperty('--kite', a.kite);
     const mood = $('.mood', el); mood.textContent = p.mood?.e || ''; mood.hidden = !p.mood?.e;
     if (seat?.blanket) el.style.setProperty('--blanket', seat.blanket);
     el.style.setProperty('--c', p.color);
@@ -1201,7 +1234,7 @@ function setupStage() {
   const stage = $('#stage');
   stage.addEventListener('click', e => {
     if (stage._panned) { stage._panned = false; return; }
-    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go], [data-fish], #fest-btns')) return;
+    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go], [data-fish], #fest-btns, [data-ball], .bh-spot, .bh-bottle')) return;
     const hadEmote = !$('#emotebar').hidden;
     const prevTarget = emoteTarget;
     hideEmotebar();
@@ -1298,6 +1331,7 @@ function tapItem(id, p) {
   if (it.k === 'tv') return tv.tapTV();
   if (it.k === 'vmail') return vmail?.open();
   if (it.k === 'bucket') return outside.buildCastle();
+  if (it.k === 'icecart') return beach?.iceMenu();
   if (it.k === 'campfire') {
     const lit = it.lit && store.now() - it.lit < HOUR;
     store.update(`${sp()}/items/${id}`, { lit: lit ? null : store.now() });
@@ -2337,6 +2371,7 @@ function route(d, t) {
   if (outside?.route(d, t)) return;
   if (seasons?.route(d)) return;
   if (fishing?.route(d)) return;
+  if (beach?.route(d)) return;
   if (d.action === 'pet') { closePanel(); return pet?.openMain(); }
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
@@ -2499,7 +2534,7 @@ document.addEventListener('change', e => {
 });
 
 const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv', 'mood', 'bed', 'bouquet', 'chess', 'doodle'];
-const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask' || overlayMode === 'postcard' || overlayMode === 'fest' || overlayMode === 'fishing');
+const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask' || overlayMode === 'postcard' || overlayMode === 'fest' || overlayMode === 'fishing' || beach?.CLOSABLE.includes(overlayMode));
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
 
