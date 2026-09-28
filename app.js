@@ -1,10 +1,10 @@
-import { createStore } from './store.js?v=9';
-import { createCall } from './call.js?v=9';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=9';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=9';
-import { initTV } from './tv.js?v=9';
-import { initGames } from './games.js?v=9';
-import { initPet } from './pet.js?v=9';
+import { createStore } from './store.js?v=10';
+import { createCall } from './call.js?v=10';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=10';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=10';
+import { initTV } from './tv.js?v=10';
+import { initGames } from './games.js?v=10';
+import { initPet } from './pet.js?v=10';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -224,6 +224,7 @@ const REACH = 26;
 const S = { garden: {}, look: {}, profiles: {}, nicks: {}, presence: {}, avatars: {}, items: {}, strokes: {}, notes: {}, msgs: [], typing: {}, power: null };
 let store, roomId, me, other, call, view = 'living';
 let panel = null, overlayMode = null, spaceUnsubs = [];
+let drawHintShown = false;
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
@@ -292,7 +293,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 9;
+const VERSION = 10;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -1110,6 +1111,7 @@ function setupStage() {
     selectItem(id);
     const p = worldPt(e);
     drag = { id, el, dx: p.x - it.x, dy: p.y - it.y, x: it.x, y: it.y, moved: false };
+    $('#dock').classList.add('dragging');
     try { el.setPointerCapture(e.pointerId); } catch {}
   });
   layer.addEventListener('pointermove', e => {
@@ -1123,6 +1125,7 @@ function setupStage() {
   const end = () => {
     if (!drag) return;
     const d = drag; drag = null;
+    $('#dock').classList.remove('dragging');
     if (d.moved) { $('#stage')._panned = true; store.update(`${sp()}/items/${d.id}`, { x: +d.x.toFixed(2), y: +d.y.toFixed(2) }); }
   };
   layer.addEventListener('pointerup', end);
@@ -1585,7 +1588,7 @@ function openPanel(name) {
   panel = name;
   const dock = $('#dock');
   dock.hidden = false;
-  dock.className = ['chat', 'notes', 'games', 'profile', 'decorate'].includes(name) ? 'tall' : '';
+  dock.className = name === 'decorate' ? 'slim deco' : name === 'draw' ? 'slim' : ['chat', 'notes', 'games', 'profile'].includes(name) ? 'tall' : '';
   $$('#toolbar [data-panel]').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
   $('#stage').classList.toggle('decorating', name === 'decorate');
   $('#stage').classList.toggle('drawing', name === 'draw');
@@ -1595,7 +1598,7 @@ function openPanel(name) {
 }
 function closePanel() {
   panel = null;
-  $('#dock').hidden = true; $('#dock').innerHTML = '';
+  $('#dock').hidden = true; $('#dock').innerHTML = ''; $('#dock').classList.remove('folded', 'dragging');
   $$('#toolbar [data-panel]').forEach(b => b.classList.remove('active'));
   $('#stage').classList.remove('decorating', 'drawing', 'erasing');
   selectItem(null);
@@ -1640,8 +1643,8 @@ function pinNote() {
 
 function renderDecoratePanel() {
   const tabs = [['furniture', '🛋️ Furniture'], ['photos', '🖼️ Photos'], ['stickers', '🧸 Stuff'], ['themes', '✨ Themes'], ['wall', '🧱 Wall'], ['floor', '🪵 Floor'], ['text', '🔤 Words']];
-  $('#dock').innerHTML = head(`🎨 Decorate the ${ROOMS[view].name.toLowerCase()}`, 'Drag things · tap one for options · swipe empty space to look around') +
-    `<div class="tabs">${tabs.map(([k, l]) => `<button class="chip ${k === decoTab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+  $('#dock').innerHTML = `<div class="slim-top"><div class="tabs">${tabs.map(([k, l]) => `<button class="chip ${k === decoTab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+      <button class="x" data-fold aria-label="Fold the panel">${$('#dock').classList.contains('folded') ? '▴' : '▾'}</button><button class="x" data-close aria-label="Close">✕</button></div>
     <div class="sel-strip" id="sel-strip" hidden></div>
     <div class="panel-body" id="deco-body"></div>`;
   renderSelStrip();
@@ -1653,10 +1656,10 @@ function renderSelStrip() {
   if (!it || it.t === 'emoji' || it.t === 'food') { box.hidden = true; return; }
   box.hidden = false;
   if (it.t === 'photo') {
-    box.innerHTML = `<h4>Frame</h4><div class="chips">${FRAMES.map(f => `<button class="chip ${f === (it.f || 'wood') ? 'on' : ''}" data-item-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div>`;
+    box.innerHTML = `<div class="chips">${FRAMES.map(f => `<button class="chip ${f === (it.f || 'wood') ? 'on' : ''}" data-item-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div>`;
   } else {
     const label = it.t === 'text' ? 'Text color' : `${FURN[it.k]?.label || 'Item'} color`;
-    box.innerHTML = `<h4>${label}</h4>${swatches(PALETTE, it.c || FURN[it.k]?.c, 'data-item-color')}`;
+    box.innerHTML = `<small>${label}</small>${swatches(PALETTE, it.c || FURN[it.k]?.c, 'data-item-color')}`;
   }
 }
 const chips = (list, cur, key) => `<div class="chips">${list.map(([k, l]) => `<button class="chip ${k === cur ? 'on' : ''}" data-set="${key}" data-val="${k}">${l}</button>`).join('')}</div>`;
@@ -1667,22 +1670,17 @@ function renderDecoBody() {
   const html = {
     furniture: `<div class="furn-grid">${Object.entries(FURN).map(([k, f]) => `<button data-furn="${k}"><span>${f.icon}</span>${f.label}</button>`).join('')}</div>
       <p class="hint">Tip: tap a piece in the room to change its color, turn it 🔄, resize or remove it.</p>`,
-    photos: `<div class="photo-pick"><div class="big">🖼️</div>
-        <input class="field" id="photo-cap" maxlength="40" placeholder="Caption (optional)" style="margin:8px 0">
-        <h4 style="margin-top:6px">Frame</h4>
-        <div class="chips" style="justify-content:center">${FRAMES.map(f => `<button class="chip ${f === photoFrame ? 'on' : ''}" data-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div>
-        <button class="btn" style="margin-top:14px" data-add-photo>📷 Choose from gallery</button>
-        <p class="hint">${nPhotos}/${MAX_PHOTOS} photos in this room. Either of you can move or take them down.</p></div>`,
+    photos: `<div class="row"><input class="field" id="photo-cap" maxlength="40" placeholder="Caption (optional)"><button class="btn small" data-add-photo>📷 Gallery</button></div>
+        <div class="slim-line"><small>Frame</small><div class="chips">${FRAMES.map(f => `<button class="chip ${f === photoFrame ? 'on' : ''}" data-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div></div>
+        <p class="slim-note">${nPhotos}/${MAX_PHOTOS} photos in this room</p>`,
     stickers: `<div class="chips">${Object.keys(STICKER_SETS).map(k => `<button class="chip ${k === stickerSet ? 'on' : ''}" data-set-stickers="${esc(k)}">${k}</button>`).join('')}</div>
       <div class="stickers">${STICKER_SETS[stickerSet].map(s => `<button data-sticker="${s}">${s}</button>`).join('')}</div>`,
     themes: `<div class="themes">${THEMES.map(([i, n, bg], idx) => `<button style="background:${bg};color:${bg === '#2b2d42' ? '#fff' : 'inherit'}" data-theme="${idx}"><span>${i}</span>${n}</button>`).join('')}</div>
       <p class="hint">A theme repaints the walls, floor, rug and curtains of this room.</p>`,
-    wall: `<h4>Paint</h4>${swatches(PALETTE, r.wall, 'data-look-wall')}<h4>Wallpaper</h4>${chips(WALLPAPERS, r.wp, 'wp')}<h4>Curtains</h4>${swatches(PALETTE, r.cur, 'data-look-cur', { none: true })}`,
-    floor: `<h4>Floor</h4>${chips(FLOORS, r.fl, 'fl')}<h4>Floor color</h4>${swatches(PALETTE, r.floor, 'data-look-floor')}<h4>Rug</h4>${swatches(PALETTE, r.rug, 'data-look-rug', { none: true })}`,
-    text: `<h4>Write on the wall</h4>
-      <div class="row"><input class="field" id="text-input" maxlength="60" placeholder="e.g. I miss you!" enterkeyhint="done"><button class="btn small" data-add-text>Add</button></div>
-      <h4>Color</h4>${swatches(PALETTE, textInk, 'data-text-ink')}
-      <p class="hint">🔒 Words are protected from the other person for 1 hour.</p>`,
+    wall: `<div class="slim-line"><small>Paint</small>${swatches(PALETTE, r.wall, 'data-look-wall')}</div><div class="slim-line"><small>Paper</small>${chips(WALLPAPERS, r.wp, 'wp')}</div><div class="slim-line"><small>Curtains</small>${swatches(PALETTE, r.cur, 'data-look-cur', { none: true })}</div>`,
+    floor: `<div class="slim-line"><small>Floor</small>${chips(FLOORS, r.fl, 'fl')}</div><div class="slim-line"><small>Colour</small>${swatches(PALETTE, r.floor, 'data-look-floor')}</div><div class="slim-line"><small>Rug</small>${swatches(PALETTE, r.rug, 'data-look-rug', { none: true })}</div>`,
+    text: `<div class="row"><input class="field" id="text-input" maxlength="60" placeholder="Write on the wall… (🔒 1 hour)" enterkeyhint="done"><button class="btn small" data-add-text>Add</button></div>
+      <div class="slim-line"><small>Colour</small>${swatches(PALETTE, textInk, 'data-text-ink')}</div>`,
   };
   b.innerHTML = html[decoTab];
 }
@@ -1694,16 +1692,14 @@ function setLook(key, val) {
 
 function renderDrawPanel() {
   $('#stage').classList.toggle('erasing', tool === 'erase');
-  $('#dock').innerHTML = head('✏️ Draw on the wall', tool === 'erase' ? 'Rub over drawings or words to erase' : 'Draw on the wall · swipe the floor to look around') +
-    `<div class="panel-body">
-      <div class="chips"><button class="chip ${tool === 'pen' ? 'on' : ''}" data-tool="pen">✏️ Pen</button><button class="chip ${tool === 'erase' ? 'on' : ''}" data-tool="erase">🧽 Eraser</button></div>
-      ${tool === 'pen' ? `<div style="margin-top:12px">${swatches(PALETTE, ink, 'data-ink', { small: true })}</div>` : ''}
-      <div class="row between" style="margin-top:12px">
-        <div class="row brushes">${BRUSHES.map(w => `<button class="${w === brush ? 'on' : ''}" data-brush="${w}" aria-label="Size ${w}"><i style="width:${w / 1.3 + 3}px;height:${w / 1.3 + 3}px"></i></button>`).join('')}</div>
-        <div class="row"><button class="btn ghost small" data-undo>↶ Undo</button><button class="btn ghost small" data-wipe>🗑️ Clear</button></div>
-      </div>
-      <p class="hint">🔒 Your partner’s drawings and words can only be erased 1 hour after they make them (and yours the same for them).</p>
-    </div>`;
+  $('#dock').innerHTML = `<div class="slim-top">
+      <button class="chip ${tool === 'pen' ? 'on' : ''}" data-tool="pen" aria-label="Pen">✏️</button><button class="chip ${tool === 'erase' ? 'on' : ''}" data-tool="erase" aria-label="Eraser">🧽</button>
+      <div class="row brushes">${BRUSHES.map(w => `<button class="${w === brush ? 'on' : ''}" data-brush="${w}" aria-label="Size ${w}"><i style="width:${w / 1.3 + 3}px;height:${w / 1.3 + 3}px"></i></button>`).join('')}</div>
+      <span class="grow"></span>
+      <button class="x" data-undo aria-label="Undo">↶</button><button class="x" data-wipe aria-label="Clear my drawings">🗑️</button><button class="x" data-close aria-label="Close">✕</button>
+    </div>
+    ${tool === 'pen' ? `<div class="slim-line">${swatches(PALETTE, ink, 'data-ink', { small: true })}</div>` : '<p class="slim-note">🧽 Rub over drawings or words to erase them</p>'}`;
+  if (!drawHintShown) { drawHintShown = true; toast('✏️ Draw on the wall · 🔒 each other’s drawings are protected for 1 hour', 3500); }
 }
 
 function renderGamesPanel() {
@@ -2077,7 +2073,7 @@ function renderBubble() {
 function toggleMini(on) {
   bubOpen = on;
   $('#minichat').hidden = !on;
-  if (on) { renderMini(true); markRead('chat'); setTimeout(() => $('#mini-input')?.focus(), 50); }
+  if (on) { const l = $('#minichat .mini-list'); if (l) l.dataset.n = 0; renderMini(true); markRead('chat'); setTimeout(() => $('#mini-input')?.focus(), 50); }
 }
 function placeMini() {
   const bub = $('#chatbub'), box = $('#minichat');
@@ -2094,17 +2090,23 @@ function renderMini() {
   const box = $('#minichat'); if (!box || box.hidden) return;
   if (!box.firstChild) {
     box.innerHTML = `<div class="mini-head"><span class="pface"></span><b></b><button class="mini-btn" data-mini="full" aria-label="Open full chat">↗</button><button class="mini-btn" data-mini="close" aria-label="Close">✕</button></div>
-      <div class="mini-list"></div><div class="typing"></div>
+      <div class="mini-list"></div><button class="mini-new" data-mini="bottom" hidden>↓ New message</button><div class="typing"></div>
       <form class="chat-form" id="mini-form"><input class="field" id="mini-input" placeholder="Message…" autocomplete="off" maxlength="1000" enterkeyhint="send"><button class="send" aria-label="Send">➤</button></form>`;
     const inp = $('#mini-input');
     $('#mini-form').addEventListener('submit', e => { e.preventDefault(); sendChat(inp.value); inp.value = ''; inp.focus(); });
     inp.addEventListener('input', onTyping);
+    const list = $('.mini-list', box);
+    list.addEventListener('scroll', () => { if (list.scrollHeight - list.scrollTop - list.clientHeight < 24) $('.mini-new', box).hidden = true; });
   }
   const p = prof(other), face = $('.mini-head .pface', box);
   face.textContent = p.face; face.style.setProperty('--c', p.color);
   $('.mini-head b', box).textContent = called(other);
-  const last = S.msgs.slice(-2);
-  $('.mini-list', box).innerHTML = last.length ? last.map(m => `<div class="msg ${m.by === me ? 'mine' : 'theirs'} ${JUMBO.test(m.text) && [...m.text].length <= 8 ? 'jumbo' : ''}">${m.by !== me && m.by !== other ? `<small class="who">${esc(called(m.by))}</small>` : ''}${esc(m.text)}<time>${fmtTime(m.ts)}</time></div>`).join('') : '<div class="empty">Say hi 👋</div>';
+  const list = $('.mini-list', box), last = S.msgs.slice(-150);
+  const atEnd = list.scrollHeight - list.scrollTop - list.clientHeight < 24, prevN = +list.dataset.n || 0;
+  list.innerHTML = last.length ? last.map(m => `<div class="msg ${m.by === me ? 'mine' : 'theirs'} ${JUMBO.test(m.text) && [...m.text].length <= 8 ? 'jumbo' : ''}">${m.by !== me && m.by !== other ? `<small class="who">${esc(called(m.by))}</small>` : ''}${esc(m.text)}<time>${fmtTime(m.ts)}</time></div>`).join('') : '<div class="empty">Say hi 👋</div>';
+  list.dataset.n = last.length;
+  if (atEnd || !prevN || last.length < prevN) list.scrollTop = list.scrollHeight;
+  else if (last.length > prevN) $('.mini-new', box).hidden = false;
   const t = S.typing[other];
   $('.typing', box).textContent = t && store.now() - t < 5000 ? `${called(other)} is typing…` : '';
   placeMini();
@@ -2118,6 +2120,7 @@ function route(d, t) {
   if (d.action === 'pet') { closePanel(); return pet?.openMain(); }
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
+  if (d.mini === 'bottom') { const l = $('#minichat .mini-list'); if (l) l.scrollTop = l.scrollHeight; t.hidden = true; return; }
   if ('visitYes' in d || 'visitNo' in d) return letVisitorIn('visitYes' in d);
   if ('visitCreate' in d) return createVisitLink(false);
   if ('visitRenew' in d) { if (confirm('Make a new visitor link? The old link will stop working.')) createVisitLink(true); return; }
@@ -2148,6 +2151,7 @@ function route(d, t) {
   if (d.bouquet) return placeBouquet(d.bouquet);
   if (d.goRoom) { hideOverlay(); return goThroughDoor(d.goRoom); }
   if ('close' in d) return closePanel();
+  if ('fold' in d) { const dk = $('#dock'); dk.classList.toggle('folded'); t.textContent = dk.classList.contains('folded') ? '▴' : '▾'; return; }
   if (d.panel) return openPanel(d.panel);
   if (d.action === 'call') return onCallButton();
   if (d.zoom) {

@@ -967,7 +967,8 @@ button.game:active { transform: scale(.98); }
 .mini-head b { flex: 1; font-size: 15px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mini-head .pface { width: 30px; height: 30px; font-size: 18px; }
 .mini-btn { width: 30px; height: 30px; border-radius: 50%; background: var(--soft); font-size: 14px; flex: none; }
-.mini-list { display: flex; flex-direction: column; gap: 4px; padding: 4px 12px; min-height: 40px; }
+.mini-list { display: flex; flex-direction: column; gap: 4px; padding: 4px 12px; min-height: 40px; max-height: 118px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.mini-new { display: block; margin: -2px auto 2px; font-size: 11px; font-weight: 600; color: #fff; background: var(--ui); border-radius: 99px; padding: 2px 10px; }
 .mini-list .msg { max-width: 86%; font-size: 14px; }
 .msg .who { display: block; font-size: 10px; font-weight: 600; opacity: .7; }
 #minichat .typing { height: 14px; font-size: 11px; padding: 0 14px; }
@@ -1093,3 +1094,38 @@ button.game:active { transform: scale(.98); }
 @keyframes pet-roll { 0% { rotate: 0deg; translate: 0 0; } 50% { rotate: 180deg; translate: 0 -12%; } 100% { rotate: 360deg; translate: 0 0; } }
 @keyframes pet-dead { 0%, 100% { rotate: 0deg; translate: 0 0; } 15% { rotate: 25deg; translate: 0 -8%; } 30%, 80% { rotate: 180deg; translate: 0 6%; } 88% { rotate: 180deg; translate: 0 -4%; } }
 @keyframes pet-dance { 0%, 100% { rotate: -12deg; translate: 0 0; } 50% { rotate: 12deg; translate: 0 -12%; } }
+
+/* ── Slim panels (decorate / draw): keep the room visible ── */
+#dock.slim { max-height: 36dvh; }
+#dock.slim .slim-top { display: flex; align-items: center; gap: 6px; padding: 8px 8px 6px 10px; flex: none; }
+#dock.slim .slim-top .tabs { padding: 0; flex: 1; min-width: 0; }
+#dock.slim .slim-top .chip { flex: none; padding: 6px 11px; font-size: 13px; }
+#dock.slim .slim-top .grow { flex: 1; }
+#dock.slim .slim-top .x { flex: none; }
+#dock.slim .brushes { gap: 4px; }
+#dock.slim .brushes button { width: 32px; height: 32px; }
+#dock.slim .panel-body { padding: 2px 10px 10px; }
+#dock.slim .slim-line { display: flex; align-items: center; gap: 8px; padding: 2px 10px 8px; min-width: 0; }
+#dock.slim .panel-body .slim-line { padding: 4px 0; }
+#dock.slim .slim-line > small { flex: none; width: 52px; font-size: 11px; color: var(--muted); }
+#dock.slim .slim-line .swatches, #dock.slim .slim-line .chips, #dock.slim .sel-strip .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 3px 2px; min-width: 0; flex: 1; }
+#dock.slim .slim-line .swatches::-webkit-scrollbar, #dock.slim .slim-line .chips::-webkit-scrollbar { display: none; }
+#dock.slim .slim-line .sw { flex: none; width: 28px; height: 28px; }
+#dock.slim .slim-line .chip { flex: none; }
+#dock.slim .slim-note { font-size: 12px; color: var(--muted); margin: 2px 10px 8px; }
+#dock.slim .panel-body .slim-note { margin: 4px 0 0; }
+#dock.slim .sel-strip { display: flex; align-items: center; gap: 8px; padding: 4px 10px; margin: 0 8px 4px; }
+#dock.slim .sel-strip[hidden] { display: none; }
+#dock.slim .sel-strip small { flex: none; font-size: 11px; color: var(--muted); max-width: 64px; }
+#dock.slim .sel-strip .swatches { flex: 1; min-width: 0; }
+#dock.deco .furn-grid, #dock.deco .themes { display: flex; overflow-x: auto; gap: 6px; scrollbar-width: none; padding-bottom: 2px; }
+#dock.deco .furn-grid button { flex: none; width: 74px; padding: 6px 2px; font-size: 11px; }
+#dock.deco .furn-grid button span { font-size: 24px; }
+#dock.deco .themes button { flex: none; width: 86px; padding: 8px 4px; font-size: 12px; }
+#dock.deco .themes button span { font-size: 22px; }
+#dock.deco .stickers { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, 42px); grid-auto-columns: 42px; overflow-x: auto; margin-top: 6px; scrollbar-width: none; }
+#dock.deco .stickers button { font-size: 26px; }
+#dock.deco > .panel-body > .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+#dock.deco > .panel-body > .chips .chip { flex: none; }
+#dock.deco .hint { display: none; }
+#dock.folded > :not(.slim-top), #dock.dragging > :not(.slim-top) { display: none !important; }
