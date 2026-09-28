@@ -1,13 +1,14 @@
-import { createStore } from './store.js?v=16';
-import { createCall } from './call.js?v=16';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=16';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=16';
-import { initTV } from './tv.js?v=16';
-import { initGames } from './games.js?v=16';
-import { initPet } from './pet.js?v=16';
-import { cropPhoto } from './dp.js?v=16';
-import { initVmail } from './vmail.js?v=16';
-import { initOutside, INDOOR } from './outside.js?v=16';
+import { createStore } from './store.js?v=17';
+import { createCall } from './call.js?v=17';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=17';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=17';
+import { initTV } from './tv.js?v=17';
+import { initGames } from './games.js?v=17';
+import { initPet } from './pet.js?v=17';
+import { cropPhoto } from './dp.js?v=17';
+import { initVmail } from './vmail.js?v=17';
+import { initOutside, INDOOR } from './outside.js?v=17';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=17';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -196,6 +197,7 @@ const FURN = {
   log: { label: 'Log bench', icon: '🪵', c: '#8d5a3b', html: '<div class="lg-body"></div><div class="lg-end"></div>' },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
+Object.assign(FURN, SEASON_FURN);   // festival pieces (only offered in their festival's pack)
 // Where characters sit or lie on furniture: [dx, height above the item's bottom, pose] in room units
 const SEATS = {
   sofa: { front: [[-8, 6, 'sit'], [8, 6, 'sit']], back: [[-8, 11.5, 'back'], [8, 11.5, 'back']], left: [[-6, 6, 'sit'], [4, 6, 'sit']], right: [[6, 6, 'sit'], [-4, 6, 'sit']] },
@@ -227,7 +229,7 @@ const NICK_IDEAS = ['Honey Bun 🍯', 'Cutie Pie 🥧', 'Sweetie 🍬', 'Baby �
 const MAX_PHOTOS = 15;
 const MOODS = [['😊', 'Happy'], ['😍', 'In love'], ['🥺', 'Missing you'], ['😴', 'Sleepy'], ['🤒', 'Not well'], ['😤', 'Grumpy'], ['🥳', 'Excited'], ['📚', 'Busy'],
   ['😢', 'Sad'], ['🤗', 'Need a hug'], ['🍕', 'Hungry'], ['😌', 'Relaxed'], ['💼', 'At work'], ['🏃', 'Out & about'], ['🤯', 'Stressed'], ['🥰', 'Cozy']];
-const FLYERS = ['🦋', '🐝', '🕊️'];
+const FLYERS = ['🦋', '🐝', '🕊️', '👻', '🦇'];
 const FLOWERS = [['🌷', 'Tulip'], ['🌹', 'Rose'], ['🌻', 'Sunflower'], ['🌼', 'Daisy'], ['🌸', 'Blossom'], ['🌺', 'Hibiscus']];
 const GROW = { sprout: 6 * 3600000, bud: 24 * 3600000, bloom: 48 * 3600000, thirsty: 48 * 3600000 };
 const POWER_MS = 20000, SPAWN_MS = 25000;
@@ -273,7 +275,7 @@ let drawHintShown = false;
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside = null;
+let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside = null, seasons = null;
 const prevMood = {};
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
@@ -346,7 +348,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 16;
+const VERSION = 17;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -565,6 +567,10 @@ async function enterRoom() {
   });
   store.on('beach', v => outside.onBeach(v));
   store.on('outside', v => outside.onShared(v));
+  seasons = initSeasons({
+    $, esc, sfx, toast, showCard, hideOverlay, lsGet, lsSet, addItem, centerX: () => viewCenterX(),
+    wild: () => !!ROOMS[view]?.wild, skyHour: () => outside.skyHour(), outside: () => isOutside(view),
+  });
   store.on('walk', v => outside.onWalk(v));
   setInterval(flyAround, 2600);
   setupCamera();
@@ -573,6 +579,11 @@ async function enterRoom() {
   await openSpace(view);
   if (isOutside(view)) outside.arrived('living', view);
   store.on('pet', v => pet.onPet(v));
+  // Festival over? Tidy its decorations out of every room, not just this one
+  for (const rm of Object.keys(ROOMS)) store.once(`spaces/${rm}/items`).then(its => {
+    const gone = Object.entries(its || {}).filter(([, it]) => it.season && !festActive(it.season)).map(([k]) => [`items/${k}`, null]);
+    if (gone.length) store.update(`spaces/${rm}`, Object.fromEntries(gone));
+  });
   vmail = initVmail({ $, esc, sfx, store, me: () => me, other: () => other, called, ago, toast, showCard, hideOverlay, overlayMode: () => overlayMode, isVisitor: () => isVisitor,
     view: () => view, goRoom: rm => goThroughDoor(rm),
     async findMachine() {
@@ -615,6 +626,7 @@ async function openSpace(rid) {
   $('#stage').classList.add('rm-' + rid);
   $('#scene').innerHTML = outside?.sceneHTML(rid) || '';
   outside?.applySky();
+  seasons?.refresh();
   $('.door-sign').textContent = '🚪 Rooms';
 
   // First visit furnishes the room; later versions add new furniture once.
@@ -1178,7 +1190,7 @@ function setupStage() {
   const stage = $('#stage');
   stage.addEventListener('click', e => {
     if (stage._panned) { stage._panned = false; return; }
-    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go]')) return;
+    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go], #fest-btns')) return;
     const hadEmote = !$('#emotebar').hidden;
     const prevTarget = emoteTarget;
     hideEmotebar();
@@ -1292,6 +1304,7 @@ function renderItems() {
   const seen = new Set();
   for (const [id, it] of Object.entries(S.items)) {
     if (it.tide && store.now() - (it.ts || 0) > 24 * HOUR) { store.remove(`${sp()}/items/${id}`); continue; }
+    if (it.season && !festActive(it.season)) { store.remove(`${sp()}/items/${id}`); continue; }   // festival over → tidy away
     seen.add(id);
     const kind = it.t === 'furn' ? 'furn:' + it.k : it.t;
     let el = layer.querySelector(`[data-id="${id}"]`);
@@ -1836,7 +1849,7 @@ function renderDecoBody() {
   const r = look();
   const nPhotos = Object.values(S.items).filter(i => i.t === 'photo').length;
   const html = {
-    furniture: `<div class="furn-grid">${Object.entries(FURN).map(([k, f]) => `<button data-furn="${k}"><span>${f.icon}</span>${f.label}</button>`).join('')}</div>
+    furniture: `<div class="furn-grid">${Object.entries(FURN).filter(([, f]) => !f.season).map(([k, f]) => `<button data-furn="${k}"><span>${f.icon}</span>${f.label}</button>`).join('')}</div>
       <p class="hint">Tip: tap a piece in the room to change its color, turn it 🔄, resize or remove it.</p>`,
     photos: `<div class="row"><input class="field" id="photo-cap" maxlength="40" placeholder="Caption (optional)"><button class="btn small" data-add-photo>📷 Gallery</button></div>
         <div class="slim-line"><small>Frame</small><div class="chips">${FRAMES.map(f => `<button class="chip ${f === photoFrame ? 'on' : ''}" data-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div></div>
@@ -2311,6 +2324,7 @@ function route(d, t) {
   if (pet?.route(d)) return;
   if (vmail?.route(d)) return;
   if (outside?.route(d, t)) return;
+  if (seasons?.route(d)) return;
   if (d.action === 'pet') { closePanel(); return pet?.openMain(); }
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
@@ -2473,7 +2487,7 @@ document.addEventListener('change', e => {
 });
 
 const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv', 'mood', 'bed', 'bouquet', 'chess', 'doodle'];
-const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask' || overlayMode === 'postcard');
+const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask' || overlayMode === 'postcard' || overlayMode === 'fest');
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
 

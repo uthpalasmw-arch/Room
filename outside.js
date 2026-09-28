@@ -1,5 +1,7 @@
 // 🏡 Outside: the front yard (and later the beach and woods), travel rules, one shared sky, walking together.
 
+import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=17';
+
 export const INDOOR = ['living', 'bedroom', 'kitchen', 'garden'];
 export const OUTDOOR = ['yard', 'beach', 'woods'];
 const PLACE_NAME = { yard: 'front yard', beach: 'beach', woods: 'woods' };
@@ -90,6 +92,13 @@ const REACT = { deer: 'The deer looks up at you… then trots away 🦌', rabbit
 // 🌦️ Weather is picked from the clock, so both phones get the same rain at the same time
 function weatherAt(t = Date.now()) {
   const block = Math.floor(t / (90 * 60000)), prev = Math.floor((t - 40 * 60000) / (90 * 60000));
+  // ❄️ Winter (Dec–Feb): snow now and then; more around Christmas; always on Christmas Day
+  const d = today(), m = d.getMonth() + 1;
+  if (isActive('christmas') && isChristmasDay()) return 'snow';
+  if (m === 12 || m <= 2) {
+    const chance = isActive('christmas') ? 0.5 : 0.2;
+    if (rnd('snow' + block) < chance) return 'snow';
+  }
   const wet = b => rnd('rain' + b) < 0.16;
   if (wet(block)) return 'rain';
   if (wet(prev) && !wet(block)) return 'rainbow';
@@ -112,7 +121,7 @@ export function initOutside(ctx) {
 
   function sceneHTML(rm) {
     const html = rm === 'yard' ? YARD : rm === 'beach' ? BEACH : rm === 'woods' ? WOODS : '';
-    return html ? html + '<div class="wx-rain"></div><div class="wx-rainbow"></div>' : '';
+    return html ? html + skyExtras(rm) + '<div class="wx-rain"></div><div class="wx-snow"></div><div class="wx-rainbow"></div>' : '';
   }
 
   // ── 🌲 Woods: animals wander their patch (same plan on both phones), shy of people ──
@@ -161,8 +170,9 @@ export function initOutside(ctx) {
     const st = $('#stage'), out = isOut(here());
     const wx = out ? weatherAt() : 'clear';
     st.classList.toggle('wx-rainy', wx === 'rain');
+    st.classList.toggle('wx-snowy', wx === 'snow');
     st.classList.toggle('wx-bow', wx === 'rainbow' && phaseOf(localHour(skyTz())) !== 'night');
-    if (out && wx !== lastWx && lastWx !== null) ctx.toast(wx === 'rain' ? '🌧️ It’s starting to rain!' : wx === 'rainbow' ? '🌈 The rain stopped — look, a rainbow!' : '☀️ The sky is clearing up', 3000);
+    if (out && wx !== lastWx && lastWx !== null) ctx.toast(wx === 'rain' ? '🌧️ It’s starting to rain!' : wx === 'snow' ? '❄️ It’s snowing!' : wx === 'rainbow' ? '🌈 The rain stopped — look, a rainbow!' : '☀️ The sky is clearing up', 3000);
     lastWx = out ? wx : null;
     return wx;
   }
@@ -246,7 +256,8 @@ export function initOutside(ctx) {
     chip.hidden = false;
     const who = shared?.by ? `${ctx.called(shared.by)}’s time` : 'your time';
     const wx = applyWeather();
-    chip.textContent = `${PHASE_LABEL[ph]}${wx === 'rain' ? ' · 🌧️ Rain' : wx === 'rainbow' ? ' · 🌈' : ''} · ${ctx.clock(skyTz())} · ${who}`;
+    const xmas = isActive('christmas') && isChristmasDay() ? ' · 🎄 Merry Christmas!' : '';
+    chip.textContent = `${PHASE_LABEL[ph]}${wx === 'rain' ? ' · 🌧️ Rain' : wx === 'snow' ? ' · ❄️ Snow' : wx === 'rainbow' ? ' · 🌈' : ''}${xmas} · ${ctx.clock(skyTz())} · ${who}`;
     animalsTick();
     windows();
     renderShells();
@@ -321,5 +332,6 @@ export function initOutside(ctx) {
   setInterval(() => { if (isOut(here())) applySky(); }, 60000);
   setInterval(() => { if (here() === 'woods' && !document.hidden) animalsTick(); }, 3500);
 
-  return { onBeach, crab, buildCastle, sceneHTML, applySky, windows, onShared, onWalk, canGo, neighbours, blockedMsg, arrived, travel, route, isOut, CLOSABLE: ['walkask', 'postcard'] };
+  const skyHour = () => localHour(skyTz());
+  return { skyHour, onBeach, crab, buildCastle, sceneHTML, applySky, windows, onShared, onWalk, canGo, neighbours, blockedMsg, arrived, travel, route, isOut, CLOSABLE: ['walkask', 'postcard'] };
 }
