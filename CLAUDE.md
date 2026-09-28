@@ -11,7 +11,7 @@ chat, voice calls, cooking, TV, garden and games. Live at https://uthpalasmw-arc
 
 | File | What it does |
 |---|---|
-| `app.js` | Main app: rooms, avatars, camera (pan/zoom), decorating, drawing, chat, chat bubble, notes, mood, garden, power-ups/kick/bonk, visitors, call UI |
+| `app.js` | Main app: rooms, avatars, camera (pan/zoom), decorating, drawing, chat, chat bubble, notes, mood, garden, power-ups/kick/bonk/kiss, visitors, call UI |
 | `store.js` | Tiny realtime store. `createStore(roomId, { base })` → Firebase, or local demo mode (`?demo=1`) |
 | `kitchen.js` | 40 recipes, cooking mini-games, cook together (`/cook`), fridge (`/fridge`), food items |
 | `tv.js` | YouTube together inside the TV (`/tv`), big screen, seek bar, mute everywhere |

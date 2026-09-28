@@ -1,18 +1,18 @@
-import { createStore } from './store.js?v=26';
-import { createCall } from './call.js?v=26';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=26';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=26';
-import { initTV } from './tv.js?v=26';
-import { initGames } from './games.js?v=26';
-import { initPet } from './pet.js?v=26';
-import { cropPhoto } from './dp.js?v=26';
-import { initVmail } from './vmail.js?v=26';
-import { initOutside, INDOOR, isWet } from './outside.js?v=26';
-import { initFishing } from './fishing.js?v=26';
-import { initBeach } from './beach.js?v=26';
-import { initWoods } from './woods.js?v=26';
-import { initBillboard } from './billboard.js?v=26';
-import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=26';
+import { createStore } from './store.js?v=27';
+import { createCall } from './call.js?v=27';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=27';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=27';
+import { initTV } from './tv.js?v=27';
+import { initGames } from './games.js?v=27';
+import { initPet } from './pet.js?v=27';
+import { cropPhoto } from './dp.js?v=27';
+import { initVmail } from './vmail.js?v=27';
+import { initOutside, INDOOR, isWet } from './outside.js?v=27';
+import { initFishing } from './fishing.js?v=27';
+import { initBeach } from './beach.js?v=27';
+import { initWoods } from './woods.js?v=27';
+import { initBillboard } from './billboard.js?v=27';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=27';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -343,7 +343,7 @@ let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside =
 const prevMood = {};
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
-const lastEmote = {}, lastBonk = {}, lastKick = {}, lastLogged = {}, prevRoom = {};
+const lastEmote = {}, lastBonk = {}, lastKick = {}, lastKiss = {}, lastLogged = {}, prevRoom = {};
 const photoCache = new Map();
 const cam = { z: 1, tx: 0, ty: 0, W: 1, H: 1 };
 // visitors (declared early: the boot code uses them straight away)
@@ -412,7 +412,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 26;
+const VERSION = 27;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -1091,6 +1091,13 @@ function renderAvatars() {
       if (fresh && store.now() - bk.ts < 6000) setTimeout(() => playBonk(id, bk.to, bk.hit), 0);
     } else if (!bk && lastBonk[id] === undefined) lastBonk[id] = 0;
 
+    const ks = a?.kiss;
+    if (ks && ks.ts !== lastKiss[id]) {
+      const fresh = lastKiss[id] !== undefined || store.now() - ks.ts < 4000;
+      lastKiss[id] = ks.ts;
+      if (fresh && store.now() - ks.ts < 6000) setTimeout(() => playKiss(id, ks.to), 0);
+    } else if (!ks && lastKiss[id] === undefined) lastKiss[id] = 0;
+
     const kk = a?.kick;
     if (kk && kk.ts !== lastKick[id]) {
       const fresh = lastKick[id] !== undefined || store.now() - kk.ts < 4000;
@@ -1227,9 +1234,10 @@ function playKick(from, k) {
   };
 }
 
-function approach(target) {
+function approach(target, { together = false } = {}) {
   const mine = S.avatars[me] || HOME[me], theirs = avatarEl(target);
   if (!theirs) return false;
+  if (together && mine.seat && mine.seat.id === S.avatars[target]?.seat?.id) return true;   // side by side on the same sofa/bed
   const dist = Math.hypot(mine.x - theirs._x, (mine.y - theirs._y) * 1.2);
   if (dist <= REACH && !S.avatars[me]?.seat) return true;
   const side = mine.x < theirs._x ? -1 : 1;
@@ -1240,6 +1248,42 @@ function tryBonk(target) {
   hideEmotebar();
   if (!approach(target)) return toast('🏏 Sneaking up… tap them again to bonk!', 2500);
   store.update(`avatars/${me}`, { bonk: { to: target, hit: Math.random() < 0.75, ts: store.now() } });
+}
+// 💋 KISS — same flow as the bonk: get close first, then send it for both phones to play
+let lastKissAt = 0;
+function tryKiss(target) {
+  hideEmotebar();
+  if (Date.now() - lastKissAt < 1800) return;
+  if (!approach(target, { together: true })) return toast('💋 Getting closer… tap them again to kiss!', 2500);
+  lastKissAt = Date.now();
+  store.update(`avatars/${me}`, { kiss: { to: target, ts: store.now() } });
+  logAct('kiss', 'gave you a kiss 💋');
+}
+function playKiss(from, to) {
+  const giver = avatarEl(from), getter = avatarEl(to);
+  if (!giver || !getter) return;
+  const dir = getter._x >= giver._x ? 1 : -1;
+  // turn to face each other (the face emoji looks left by default)
+  if (!giver._anim) giver.classList.toggle('left', dir < 0);
+  if (!getter._anim) getter.classList.toggle('left', dir > 0);
+  // lean in just enough for the faces to meet — positions never change, so nobody overlaps or gets stuck
+  const u = U(), gap = Math.abs(getter._x - giver._x) * u;
+  const lean = clamp((gap - 13 * u) / 2, 0, 4 * u);
+  const opts = { duration: 1300, easing: 'ease-in-out' };
+  const frames = (d, tilt) => [{ translate: '0 0', rotate: '0deg' }, { translate: `${d}px 0`, rotate: `${tilt}deg`, offset: .35 }, { translate: `${d}px 0`, rotate: `${tilt}deg`, offset: .7 }, { translate: '0 0', rotate: '0deg' }];
+  if (!giver._anim) giver.animate(frames(dir * lean, dir * 8), opts);
+  if (!getter._anim) getter.animate(frames(-dir * lean * .6, -dir * 5), opts);
+  setTimeout(() => {
+    sfx.kiss();
+    const mx = (giver._x + getter._x) / 2, my = Math.min(giver._y, getter._y);
+    spawnFx('💋', mx, my, 17, 'float');
+    for (let i = 0; i < 5; i++) {
+      const f = spawnFx(i % 2 ? '💕' : '❤️', mx + (Math.random() - .5) * 10, my, 20, 'float', { '--dx': `calc(${(Math.random() - .5) * 16} * var(--u))` });
+      f.style.animationDelay = `${.15 + i * .12}s`;
+    }
+    [giver, getter].forEach(el => { el.classList.remove('kissed'); void el.offsetWidth; el.classList.add('kissed'); clearTimeout(el._kz); el._kz = setTimeout(() => el.classList.remove('kissed'), 1800); });
+    if (to === me && from !== me) navigator.vibrate?.([60, 40, 60]);
+  }, 420);
 }
 function tryKick(target) {
   hideEmotebar();
@@ -1269,7 +1313,7 @@ function openEmotebar(target) {
   const bar = $('#emotebar');
   const extra = target === me ? `<button data-mood-open aria-label="Set my mood">🙂</button>` :
     (powered(me) ? `<button data-kick="${target}" aria-label="Super kick" style="font-size:calc(7 * var(--u))">🦶</button>` : '') +
-    `<button data-bonk="${target}" aria-label="Bonk">🏏</button>${isVisitor || target === 'v' ? '' : '<button data-nick-open aria-label="Nickname">🏷️</button>'}`;
+    `<button data-bonk="${target}" aria-label="Bonk">🏏</button>${isVisitor || target === 'v' ? '' : `<button data-kiss="${target}" aria-label="Kiss">💋</button><button data-nick-open aria-label="Nickname">🏷️</button>`}`;
   bar.innerHTML = extra + EMOTES.map(e => `<button data-emote="${e}">${e}</button>`).join('');
   bar.hidden = false;
   positionEmotebar();
@@ -2610,6 +2654,7 @@ function route(d, t) {
   }
   if (d.emote) return sendEmote(d.emote);
   if (d.bonk) return tryBonk(d.bonk);
+  if (d.kiss) return tryKiss(d.kiss);
   if (d.kick) return tryKick(d.kick);
   if (d.item) return itemAction(d.item);
   if (d.itemColor) { const it = S.items[selectedItem]; if (it) remember('color:' + selectedItem, restoreFields(selectedItem, { c: it.c ?? null })); if (it) store.update(`${sp()}/items/${selectedItem}`, { c: d.itemColor }); return; }

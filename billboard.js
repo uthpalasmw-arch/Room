@@ -1,6 +1,6 @@
 // 🎬 The beach billboard: real movie posters (TMDB) from both of your countries.
 // It changes every 30 minutes, the same on both phones.
-import { CONFIG } from './config.js?v=26';
+import { CONFIG } from './config.js?v=27';
 
 const SLOT_MS = 30 * 60000;
 const CACHE_MS = 6 * 3600000;

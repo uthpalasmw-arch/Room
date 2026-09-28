@@ -28,6 +28,7 @@ export const sfx = {
   ding() { tone(880, 0.15); tone(1320, 0.25, 'sine', 0.12, 0.12); },
   pop() { tone(520, 0.08, 'triangle', 0.2); tone(780, 0.08, 'triangle', 0.12, 0.05); },
   knock() { tone(170, 0.08, 'square', 0.1); tone(170, 0.08, 'square', 0.1, 0.18); tone(210, 0.1, 'square', 0.1, 0.36); },
+  kiss() { tone(900, 0.06, 'sine', 0.1); tone(1400, 0.09, 'sine', 0.09, 0.05); tone(700, 0.12, 'triangle', 0.06, 0.12); },
   poke() { tone(300, 0.1, 'sawtooth', 0.08); tone(450, 0.12, 'sawtooth', 0.08, 0.1); },
   bonk() { tone(140, 0.18, 'square', 0.22); tone(90, 0.22, 'triangle', 0.25, 0.02); tone(1400, 0.06, 'square', 0.05, 0.12); tone(1100, 0.08, 'square', 0.05, 0.2); },
   whiff() { tone(900, 0.12, 'sawtooth', 0.04); tone(500, 0.16, 'sawtooth', 0.04, 0.06); },

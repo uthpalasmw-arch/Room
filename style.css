@@ -1787,3 +1787,8 @@ button.game:active { transform: scale(.98); }
 .bb-cine b { font-size: 14px; } .bb-cine span { font-size: 13px; color: var(--muted); }
 .bb-cine .row { flex-wrap: wrap; gap: 6px; }
 a.btn { text-decoration: none; }
+
+/* 💋 kiss: rosy cheeks on both of you for a moment */
+.avatar .body::before { content: ''; position: absolute; left: 12%; right: 12%; top: 52%; height: 18%; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .3s;
+  background: radial-gradient(circle at 18% 50%, rgba(255,95,140,.75) 0 22%, transparent 26%), radial-gradient(circle at 82% 50%, rgba(255,95,140,.75) 0 22%, transparent 26%); }
+.avatar.kissed .body::before { opacity: 1; }
