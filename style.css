@@ -1201,3 +1201,67 @@ button.game:active { transform: scale(.98); }
 @keyframes vm-float-pulse { 50% { transform: translateX(-50%) scale(1.06); box-shadow: 0 4px 22px rgba(255,31,61,.8); } }
 #door.vm-dot::after { content: '1'; position: absolute; right: calc(-2 * var(--u)); top: calc(-2 * var(--u)); width: calc(5.4 * var(--u)); height: calc(5.4 * var(--u)); border-radius: 50%; background: #ff1f3d; color: #fff; font: 700 calc(3.4 * var(--u)) 'Fredoka', sans-serif; display: grid; place-items: center; box-shadow: 0 0 0 calc(.6 * var(--u)) #fff; z-index: 3; }
 .room-pick .vm-dot-txt { color: #ff1f3d; font-weight: 700; }
+
+/* ── 🏡 Outside: shared sky, hills, the house ── */
+#scene { position: absolute; inset: 0; pointer-events: none; }
+#scene button { pointer-events: auto; cursor: pointer; }
+.outside #window, .outside #board, .outside #lamp, .outside .baseboard, .outside #door, .outside #wall-canvas, .outside .rug { display: none !important; }
+.outside #wall::before { display: none; }
+.outside #wall { background: linear-gradient(#4aa8ff, #bfe8ff 85%) !important; transition: background .8s; }
+.outside.sky-dawn #wall { background: linear-gradient(#6a5acd, #ff9eb5 60%, #ffd29d) !important; }
+.outside.sky-sunset #wall { background: linear-gradient(#5b3a9c, #ff6f91 55%, #ffc371) !important; }
+.outside.sky-night #wall { background: linear-gradient(#0b0a2e, #2a2270 85%) !important; }
+.outside .sky-clouds { display: block; }
+.outside.sky-night .sky-clouds span { opacity: .25; }
+.outside.sky-night #floor { filter: brightness(.55) saturate(.8); }
+.outside.sky-sunset #floor, .outside.sky-dawn #floor { filter: brightness(.85) saturate(1.1) sepia(.12); }
+.outside.sky-night #items .item:not(.food) { filter: brightness(.7); }
+#sky-chip { position: absolute; left: 8px; top: 8px; z-index: 6400; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px; pointer-events: none; }
+
+.os-sun, .os-moon, .os-stars { position: absolute; display: none; }
+.os-sun { left: calc(150 * var(--u)); top: 6%; width: calc(14 * var(--u)); height: calc(14 * var(--u)); border-radius: 50%; background: #ffd23f; box-shadow: 0 0 calc(8 * var(--u)) calc(2 * var(--u)) #ffd23f; }
+.sky-day .os-sun { display: block; }
+.sky-dawn .os-sun, .sky-sunset .os-sun { display: block; top: 30%; background: #ff9f43; box-shadow: 0 0 calc(10 * var(--u)) calc(3 * var(--u)) #ff7f50; }
+.sky-dawn .os-sun { left: calc(30 * var(--u)); }
+.os-moon { left: calc(146 * var(--u)); top: 7%; width: calc(11 * var(--u)); height: calc(11 * var(--u)); border-radius: 50%; background: #fff8d6; box-shadow: 0 0 calc(6 * var(--u)) #fff8d6, inset calc(-3 * var(--u)) calc(-1 * var(--u)) 0 #e8dcae; }
+.sky-night .os-moon { display: block; }
+.os-stars { inset: 0 0 50% 0; background: radial-gradient(#fff 1px, transparent 1.6px) 0 0 / calc(11 * var(--u)) calc(8 * var(--u)), radial-gradient(#fff 1px, transparent 1.4px) calc(5 * var(--u)) calc(4 * var(--u)) / calc(17 * var(--u)) calc(13 * var(--u)); animation: os-twinkle 3s ease-in-out infinite alternate; }
+.sky-night .os-stars { display: block; }
+@keyframes os-twinkle { to { opacity: .55; } }
+.os-hills { position: absolute; left: 0; right: 0; top: 30%; height: 24%; }
+.os-hills i { position: absolute; bottom: 0; border-radius: 50% 50% 0 0; }
+.os-hills .h1 { left: -5%; width: 45%; height: 90%; background: #6fbf4b; }
+.os-hills .h2 { left: 30%; width: 50%; height: 70%; background: #5aaa3c; }
+.os-hills .h3 { right: -5%; width: 42%; height: 100%; background: #7ccd55; }
+.sky-night .os-hills, .sky-night .ys-fence, .sky-night .os-sign { filter: brightness(.5); }
+.sky-sunset .os-hills, .sky-dawn .os-hills { filter: brightness(.85) sepia(.2); }
+
+.ys-house { --house: #ffe8d6; position: absolute; left: calc(68 * var(--u)); width: calc(64 * var(--u)); bottom: 38%; height: calc(66 * var(--u)); }
+.ys-body { position: absolute; left: 0; right: 0; bottom: 0; height: calc(40 * var(--u)); background: var(--house); border-radius: calc(1 * var(--u)); box-shadow: inset 0 calc(-2 * var(--u)) 0 rgba(0,0,0,.12), 0 calc(1 * var(--u)) 0 rgba(0,0,0,.15); }
+.ys-roof { position: absolute; left: calc(-5 * var(--u)); right: calc(-5 * var(--u)); bottom: calc(38 * var(--u)); height: calc(26 * var(--u)); background: var(--roof, #e63946); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.ys-roof::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 calc(3 * var(--u)), rgba(0,0,0,.12) 0 calc(3.5 * var(--u))); }
+.ys-chimney { position: absolute; right: calc(12 * var(--u)); bottom: calc(52 * var(--u)); width: calc(6 * var(--u)); height: calc(13 * var(--u)); background: #9c6644; box-shadow: inset 0 calc(1.2 * var(--u)) 0 rgba(0,0,0,.2); }
+.ys-win { position: absolute; width: calc(12 * var(--u)); height: calc(10 * var(--u)); background: #9bd7ff; border: calc(1.2 * var(--u)) solid var(--trim, #fff); border-radius: calc(.8 * var(--u)); overflow: hidden; display: grid; place-items: center; }
+.ys-win::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent calc(50% - calc(.4 * var(--u))), var(--trim, #fff) 0 calc(50% + calc(.4 * var(--u))), transparent 0); opacity: .9; }
+.ys-win.w1 { left: calc(6 * var(--u)); top: calc(5 * var(--u)); } .ys-win.w4 { right: calc(6 * var(--u)); top: calc(5 * var(--u)); }
+.ys-win.w2 { left: calc(6 * var(--u)); bottom: calc(6 * var(--u)); } .ys-win.w3 { right: calc(6 * var(--u)); bottom: calc(6 * var(--u)); }
+.ys-face { position: relative; z-index: 1; width: calc(7 * var(--u)); height: calc(7 * var(--u)); font-size: calc(5.5 * var(--u)); line-height: calc(7 * var(--u)); text-align: center; display: block; }
+.ys-face:empty { display: none; }
+.ys-face .dp-img { width: 100%; height: 100%; }
+.sky-night .ys-win, .sky-sunset .ys-win { background: #ffd66b; box-shadow: 0 0 calc(4 * var(--u)) #ffc93c; }
+.sky-night .ys-body, .sky-night .ys-roof, .sky-night .ys-chimney { filter: brightness(.6); }
+.ys-door { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: calc(12 * var(--u)); height: calc(21 * var(--u)); background: var(--hdoor, #7b5cff); border-radius: calc(6 * var(--u)) calc(6 * var(--u)) 0 0; box-shadow: inset 0 0 0 calc(1 * var(--u)) rgba(0,0,0,.18); }
+.ys-door i { position: absolute; right: calc(2 * var(--u)); top: 55%; width: calc(1.6 * var(--u)); height: calc(1.6 * var(--u)); border-radius: 50%; background: #ffd60a; }
+.ys-sign-home { position: absolute; left: 50%; top: calc(-5 * var(--u)); transform: translateX(-50%); white-space: nowrap; font: 600 calc(2.4 * var(--u)) 'Fredoka', sans-serif; background: #fff; color: var(--ink); border-radius: 99px; padding: 0 calc(1.4 * var(--u)); box-shadow: 0 calc(.4 * var(--u)) 0 rgba(0,0,0,.15); }
+.ys-door:active { filter: brightness(1.2); }
+.ys-path { position: absolute; left: calc(94 * var(--u)); width: calc(12 * var(--u)); top: 62%; bottom: 0; background: repeating-linear-gradient(0deg, #d6c7a8 0 calc(4 * var(--u)), #c4b392 0 calc(4.6 * var(--u))); clip-path: polygon(25% 0, 75% 0, 100% 100%, 0 100%); }
+.ys-fence { position: absolute; top: calc(62% - 8 * var(--u)); height: calc(8 * var(--u)); background: repeating-linear-gradient(90deg, #fff 0 calc(2 * var(--u)), transparent 0 calc(4 * var(--u))); }
+.ys-fence::after { content: ''; position: absolute; left: 0; right: 0; top: 35%; height: calc(1.2 * var(--u)); background: #fff; }
+.ys-fence.l { left: calc(22 * var(--u)); width: calc(42 * var(--u)); } .ys-fence.r { left: calc(136 * var(--u)); width: calc(42 * var(--u)); }
+.os-sign { position: absolute; top: calc(66% - 16 * var(--u)); width: calc(22 * var(--u)); height: calc(18 * var(--u)); }
+.os-sign.l { left: calc(3 * var(--u)); } .os-sign.r { left: calc(175 * var(--u)); }
+.os-sign b { position: absolute; left: 0; right: 0; top: 0; background: #b07d4f; color: #fff; font: 700 calc(3 * var(--u)) 'Fredoka', sans-serif; padding: calc(1 * var(--u)) 0; border-radius: calc(1 * var(--u)); box-shadow: 0 calc(.6 * var(--u)) 0 #7a5230; white-space: nowrap; }
+.os-sign i { position: absolute; left: calc(50% - 1 * var(--u)); top: calc(5 * var(--u)); width: calc(2 * var(--u)); bottom: 0; background: #7a5230; }
+.os-sign:active b { transform: translateY(calc(.4 * var(--u))); }
+.walk-anim { display: inline-block; animation: walkbob .4s ease-in-out infinite alternate; }
+@keyframes walkbob { to { transform: translate(calc(4px), -4px) rotate(4deg); } }

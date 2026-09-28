@@ -20,6 +20,7 @@ chat, voice calls, cooking, TV, garden and games. Live at https://uthpalasmw-arc
 | `pet.js` | Pet (`/pet`): adopt/rehome, looks, needs, growing up, naps on furniture, roams rooms, tricks, eats kitchen dishes; behaviour is computed from time + the shared record so phones stay in sync |
 | `dp.js` | Profile picture crop screen (drag/pinch in a circle → 256px JPEG, stored at `/pics/{id}`) |
 | `vmail.js` | Answering machine furniture (`/vmail`): one 15 s voice message at a time, cleared once heard |
+| `outside.js` | Outdoor areas (front yard; beach/woods), travel rules (outside ↔ inside only via the front door), shared sky (`/outside` = whoever went out first's time zone), walk together (`/walk`) |
 | `sfx.js` | Synthesized sound effects |
 | `dev-server.js` | `node dev-server.js` → http://localhost:5500 for local testing |
 

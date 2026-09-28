@@ -142,7 +142,7 @@ export function initPet(ctx) {
     if (!P) return null;
     if (t - (P.rmAt || 0) < STAY || act(t)) return P.rm;
     const block = Math.floor(t / ROAM), s = seed(), rooms = ctx.rooms();
-    const home = ['a', 'b'].filter(id => (id === ctx.me() || ctx.isOnline(id)) && ctx.roomOf(id)).sort();
+    const home = ['a', 'b'].filter(id => (id === ctx.me() || ctx.isOnline(id)) && rooms.includes(ctx.roomOf(id))).sort();
     if (home.length && rnd(s, 'follow', block) < .7) return ctx.roomOf(home[Math.floor(rnd(s, 'whom', block) * home.length)]);
     if (rnd(s, 'stay', block) < .35) return P.rm;
     return rooms[Math.floor(rnd(s, 'room', block) * rooms.length)];

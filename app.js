@@ -1,12 +1,13 @@
-import { createStore } from './store.js?v=13';
-import { createCall } from './call.js?v=13';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=13';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=13';
-import { initTV } from './tv.js?v=13';
-import { initGames } from './games.js?v=13';
-import { initPet } from './pet.js?v=13';
-import { cropPhoto } from './dp.js?v=13';
-import { initVmail } from './vmail.js?v=13';
+import { createStore } from './store.js?v=14';
+import { createCall } from './call.js?v=14';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=14';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=14';
+import { initTV } from './tv.js?v=14';
+import { initGames } from './games.js?v=14';
+import { initPet } from './pet.js?v=14';
+import { cropPhoto } from './dp.js?v=14';
+import { initVmail } from './vmail.js?v=14';
+import { initOutside, INDOOR } from './outside.js?v=14';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -29,14 +30,17 @@ const ROOMS = {
   bedroom: { name: 'Bedroom', icon: '🛏️', rest: 'bed', w: 1 },
   kitchen: { name: 'Kitchen', icon: '🍳', rest: 'chair', w: 1.6 },
   garden: { name: 'Garden', icon: '🌷', rest: 'gbench', w: 1.6 },
+  yard: { name: 'Front yard', icon: '🏡', rest: 'gbench', w: 2, out: true },
 };
-const ROOM_BLURB = { living: 'TV, sofa, arcade & notes board', bedroom: 'Cozy bed & fairy lights', kitchen: 'Cook, bake & make tea together', garden: 'Flowers, swing, pond & butterflies' };
-const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 }, kitchen: { x: 14, y: 64 }, garden: { x: 14, y: 64 } };
+const isOutside = rm => !!ROOMS[rm]?.out;
+const ROOM_BLURB = { living: 'TV, sofa, arcade & notes board', bedroom: 'Cozy bed & fairy lights', kitchen: 'Cook, bake & make tea together', garden: 'Flowers, swing, pond & butterflies', yard: 'Outside your house · paths to the woods & beach' };
+const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 }, kitchen: { x: 14, y: 64 }, garden: { x: 14, y: 64 }, yard: { x: 100, y: 67 } };
 const DEFAULT_LOOK = {
   living: { wall: '#ffd6e0', wp: 'dots', floor: '#e9b872', fl: 'wood', rug: '#ff8fab', cur: '#ff5fa2' },
   bedroom: { wall: '#e4c1f9', wp: 'stars', floor: '#bdb2ff', fl: 'carpet', rug: '#ffffff', cur: '#7b5cff' },
   kitchen: { wall: '#b8f2e6', wp: 'checks', floor: '#f4f1fb', fl: 'tiles', rug: 'none', cur: '#ffb703' },
   garden: { wall: '#8fd3ff', wp: 'none', floor: '#8ac926', fl: 'grass', rug: 'none', cur: 'none' },
+  yard: { wall: '#8fd3ff', wp: 'none', floor: '#7cc444', fl: 'grass', rug: 'none', cur: 'none', house: '#ffe8d6', roof: '#e63946', hdoor: '#7b5cff', trim: '#ffffff' },
 };
 const SEED = {
   living: {
@@ -86,6 +90,14 @@ const SEED = {
     'seed-bfly2': { t: 'emoji', v: '🦋', x: 116, y: 55 },
     'seed-bee': { t: 'emoji', v: '🐝', x: 30, y: 80 },
     'seed-mush': { t: 'emoji', v: '🍄', x: 154, y: 82 },
+  },
+  yard: {
+    'seed-ybench': { t: 'furn', k: 'gbench', x: 40, y: 84, c: '#c8875a' },
+    'seed-ytree': { t: 'furn', k: 'tree', x: 160, y: 74, c: '#6cc24a' },
+    'seed-ymail': { t: 'emoji', v: '📫', x: 128, y: 70 },
+    'seed-yflower1': { t: 'emoji', v: '🌷', x: 76, y: 66, s: .7 },
+    'seed-yflower2': { t: 'emoji', v: '🌻', x: 124, y: 66, s: .7 },
+    'seed-ypot': { t: 'emoji', v: '🪴', x: 88, y: 64, s: .6 },
   },
 };
 // Added when the living room grew to two screens wide.
@@ -232,7 +244,7 @@ let drawHintShown = false;
 let decoTab = 'furniture', stickerSet = Object.keys(STICKER_SETS)[0], textInk = '#ffffff';
 let tool = 'pen', ink = '#ffffff', brush = BRUSHES[1], noteColor = NOTE_COLORS[0], photoFrame = 'wood';
 let selectedItem = null, drag = null, emoteTarget = null, erasing = null;
-let kitchen = null, tv = null, games = null, pet = null, vmail = null;
+let kitchen = null, tv = null, games = null, pet = null, vmail = null, outside = null;
 const prevMood = {};
 let presenceInit = false, chatInit = false, lastChatTs = 0, lastKickAt = 0, powerKey = '';
 const seenLog = new Set(); let logInit = false;
@@ -305,7 +317,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 13;
+const VERSION = 14;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -503,14 +515,22 @@ async function enterRoom() {
     me: () => me, other: () => other, view: () => view, items: () => S.items, roomW, roomOf, isOnline, centerOn,
     overlayMode: () => overlayMode, isVisitor: () => isVisitor, roomName: rm => ROOMS[rm]?.name || rm,
     goRoom: rm => goThroughDoor(rm),
-    rooms: () => Object.keys(ROOMS), doorSpot: rm => DOOR_SPOT[rm] || { x: 14, y: 64 },
+    rooms: () => INDOOR, doorSpot: rm => DOOR_SPOT[rm] || { x: 14, y: 64 },
   });
   store.on('garden', v => { S.garden = v || {}; $$('.item[data-kind="furn:flowerbed"]').forEach(renderBed); if (overlayMode === 'bed') showBed(openBedId); });
+  outside = initOutside({
+    $, esc, store, toast, showCard, hideOverlay, me: () => me, other: () => other, view: () => view, roomOf, isOnline, joined, called, faceHTML,
+    isVisitor: () => isVisitor, roomName: rm => ROOMS[rm]?.name || rm, exists: rm => !!ROOMS[rm], goRoom: rm => goThroughDoor(rm),
+    myTz: () => Intl.DateTimeFormat().resolvedOptions().timeZone, clock: tz => localTime(tz),
+  });
+  store.on('outside', v => outside.onShared(v));
+  store.on('walk', v => outside.onWalk(v));
   setInterval(flyAround, 2600);
   setupCamera();
   setupStage();
   setupWallDrawing();
   await openSpace(view);
+  if (isOutside(view)) outside.arrived('living', view);
   store.on('pet', v => pet.onPet(v));
   vmail = initVmail({ $, esc, sfx, store, me: () => me, other: () => other, called, ago, toast, showCard, hideOverlay, overlayMode: () => overlayMode, isVisitor: () => isVisitor,
     view: () => view, goRoom: rm => goThroughDoor(rm),
@@ -552,6 +572,8 @@ async function openSpace(rid) {
   $('#items').innerHTML = '';
   $('#stage').classList.remove(...Object.keys(ROOMS).map(r => 'rm-' + r));   // clear every room's look
   $('#stage').classList.add('rm-' + rid);
+  $('#scene').innerHTML = outside?.sceneHTML(rid) || '';
+  outside?.applySky();
   $('.door-sign').textContent = '🚪 Rooms';
 
   // First visit furnishes the room; later versions add new furniture once.
@@ -581,12 +603,16 @@ async function openSpace(rid) {
 
 function showRoomPicker() {
   const here = rm => ['a', 'b'].filter(id => (id === me || isOnline(id)) && roomOf(id) === rm && rm !== view).map(id => prof(id).face).join('');
-  showCard(`<div class="big">🚪</div><h2>Where to?</h2>
-    <div class="room-pick">${Object.entries(ROOMS).filter(([k]) => k !== view).map(([k, r]) => `<button data-go-room="${k}"><span>${r.icon}</span><div>${r.name} ${here(k)}${vmail?.waitingIn() === k ? ' <span class="vm-dot-txt">🔴 📼 1</span>' : ''}<small>${ROOM_BLURB[k]}</small></div></button>`).join('')}</div>
+  const list = outside.neighbours(view).map(k => [k, ROOMS[k] || { name: { beach: 'Beach', woods: 'Woods' }[k] || k, icon: { beach: '🏖️', woods: '🌲' }[k] || '🚧' }]);
+  const hint = isOutside(view) ? '<p class="muted">To reach other rooms, go in through the front door first 🏡</p>' : view !== 'living' ? '<p class="muted">🏡 The front door (to go outside) is in the living room</p>' : '';
+  showCard(`<div class="big">${isOutside(view) ? '🗺️' : '🚪'}</div><h2>Where to?</h2>${hint}
+    <div class="room-pick">${list.map(([k, r]) => `<button data-go-room="${k}"><span>${r.icon}</span><div>${r.name} ${here(k)}${vmail?.waitingIn() === k ? ' <span class="vm-dot-txt">🔴 📼 1</span>' : ''}<small>${ROOM_BLURB[k] || 'Coming soon 🚧'}</small></div></button>`).join('')}</div>
     <button class="btn ghost wide small" data-dismiss style="margin-top:12px">Stay here</button>`, 'rooms');
 }
 async function goThroughDoor(next) {
   if (!ROOMS[next] || next === view) return;
+  if (outside && !outside.canGo(view, next)) return toast(outside.blockedMsg(next));
+  const from = view;
   const door = $('#door');
   door.classList.add('open'); sfx.knock();
   store.update(`avatars/${me}`, { x: DOOR_SPOT[view].x, y: DOOR_SPOT[view].y, seat: null });
@@ -597,6 +623,7 @@ async function goThroughDoor(next) {
   store.update(`avatars/${me}`, { rm: next, x: DOOR_SPOT[next].x, y: DOOR_SPOT[next].y + 6, seat: null });
   $$('.avatar').forEach(a => a.remove());
   await openSpace(next);
+  outside?.arrived(from, next);
   door.classList.remove('open');
   setTimeout(() => $('#stage').classList.remove('switching'), 60);
 }
@@ -739,6 +766,7 @@ function renderPresence() {
   const status = !joined(other) ? 'Hasn’t joined yet — send the link!'
     : on ? `<i class="dot on"></i>${roomOf(other) === view ? 'Here with you' : `In the ${rm.name.toLowerCase()} ${rm.icon}`}` : `<i class="dot"></i>Away · ${ago(S.presence[other]?.ts)}`;
   const tz = (op.mood?.e ? ` · ${moodTxt(op.mood)}` : '') + (op.tz ? ` · 🕒 ${esc(localTime(op.tz))}` : '');
+  outside?.windows();
   $('#pill-other').innerHTML = `<span class="pface" style="--c:${esc(op.color)}">${faceHTML(other)}</span><span class="pinfo"><b>${esc(joined(other) ? called(other) : 'Your partner')}</b><small>${status}${joined(other) ? tz : ''}</small></span>`;
   $$('.k-arcade').forEach(a => a.closest('.item')?.classList.toggle('ready', on));
 }
@@ -755,10 +783,12 @@ function renderLook() {
   if (r.rug !== 'none') floor.style.setProperty('--rug', r.rug);
   $('#window').classList.toggle('nocur', r.cur === 'none');
   if (r.cur !== 'none') $('#window').style.setProperty('--cur', r.cur);
-  $('#stage').classList.toggle('lights-off', r.lights === false);
-  if (panel === 'decorate' && ['wall', 'floor', 'themes'].includes(decoTab)) renderDecoBody();
+  $('#stage').classList.toggle('lights-off', r.lights === false && !isOutside(view));
+  if (r.house) ['house', 'roof', 'hdoor', 'trim'].forEach(k => $('#scene').style.setProperty('--' + k, r[k]));
+  if (panel === 'decorate' && ['wall', 'floor', 'themes', 'house'].includes(decoTab)) renderDecoBody();
 }
 function renderWindow() {
+  if (isOutside(view)) return outside?.applySky();
   const h = new Date().getHours();
   const w = $('#window');
   w.classList.toggle('night', h >= 19 || h < 6);
@@ -783,6 +813,7 @@ function onAvatars(v) {
   }
   prevRoom[other] = r;
   renderAvatars();
+  outside?.windows();
 }
 
 function seatPos(itemId, idx) {
@@ -1102,7 +1133,7 @@ function setupStage() {
   const stage = $('#stage');
   stage.addEventListener('click', e => {
     if (stage._panned) { stage._panned = false; return; }
-    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float')) return;
+    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go]')) return;
     const hadEmote = !$('#emotebar').hidden;
     const prevTarget = emoteTarget;
     hideEmotebar();
@@ -1661,6 +1692,7 @@ const head = (title, sub = '') => `<div class="panel-head"><div><b>${title}</b>$
 
 function openPanel(name) {
   if (panel === name) return closePanel();
+  if (name === 'draw' && isOutside(view)) return toast('✏️ Drawing is for the walls inside the house 🏠');
   closePanel();
   panel = name;
   const dock = $('#dock');
@@ -1719,7 +1751,9 @@ function pinNote() {
 }
 
 function renderDecoratePanel() {
-  const tabs = [['furniture', '🛋️ Furniture'], ['photos', '🖼️ Photos'], ['stickers', '🧸 Stuff'], ['themes', '✨ Themes'], ['wall', '🧱 Wall'], ['floor', '🪵 Floor'], ['text', '🔤 Words']];
+  const tabs = view === 'yard' ? [['house', '🏠 House'], ['furniture', '🪑 Furniture'], ['stickers', '🧸 Stuff'], ['text', '🔤 Words']]
+    : [['furniture', '🛋️ Furniture'], ['photos', '🖼️ Photos'], ['stickers', '🧸 Stuff'], ['themes', '✨ Themes'], ['wall', '🧱 Wall'], ['floor', '🪵 Floor'], ['text', '🔤 Words']];
+  if (!tabs.some(([k]) => k === decoTab)) decoTab = tabs[0][0];
   $('#dock').innerHTML = `<div class="slim-top"><div class="tabs">${tabs.map(([k, l]) => `<button class="chip ${k === decoTab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
       <button class="x" data-deco-undo aria-label="Undo">↶</button><button class="x" data-deco-all aria-label="Show all">⤢</button>
       <button class="x" data-fold aria-label="Fold the panel">${$('#dock').classList.contains('folded') ? '▴' : '▾'}</button><button class="x" data-close aria-label="Close">✕</button></div>
@@ -1756,6 +1790,8 @@ function renderDecoBody() {
       <div class="stickers">${STICKER_SETS[stickerSet].map(s => `<button data-sticker="${s}">${s}</button>`).join('')}</div>`,
     themes: `<div class="themes">${THEMES.map(([i, n, bg], idx) => `<button style="background:${bg};color:${bg === '#2b2d42' ? '#fff' : 'inherit'}" data-theme="${idx}"><span>${i}</span>${n}</button>`).join('')}</div>
       <p class="hint">A theme repaints the walls, floor, rug and curtains of this room.</p>`,
+    house: `<div class="slim-line"><small>Walls</small>${swatches(PALETTE, r.house, 'data-look-house')}</div><div class="slim-line"><small>Roof</small>${swatches(PALETTE, r.roof, 'data-look-roof')}</div>
+      <div class="slim-line"><small>Door</small>${swatches(PALETTE, r.hdoor, 'data-look-hdoor')}</div><div class="slim-line"><small>Windows</small>${swatches(PALETTE, r.trim, 'data-look-trim')}</div>`,
     wall: `<div class="slim-line"><small>Paint</small>${swatches(PALETTE, r.wall, 'data-look-wall')}</div><div class="slim-line"><small>Paper</small>${chips(WALLPAPERS, r.wp, 'wp')}</div><div class="slim-line"><small>Curtains</small>${swatches(PALETTE, r.cur, 'data-look-cur', { none: true })}</div>`,
     floor: `<div class="slim-line"><small>Floor</small>${chips(FLOORS, r.fl, 'fl')}</div><div class="slim-line"><small>Colour</small>${swatches(PALETTE, r.floor, 'data-look-floor')}</div><div class="slim-line"><small>Rug</small>${swatches(PALETTE, r.rug, 'data-look-rug', { none: true })}</div>`,
     text: `<div class="row"><input class="field" id="text-input" maxlength="60" placeholder="Write on the wall… (🔒 1 hour)" enterkeyhint="done"><button class="btn small" data-add-text>Add</button></div>
@@ -1763,7 +1799,7 @@ function renderDecoBody() {
   };
   b.innerHTML = html[decoTab];
 }
-const LOOK_LOG = { wall: 'painted the wall 🎨', wp: 'changed the wallpaper 🖼️', floor: 'changed the floor 🪵', fl: 'changed the floor 🪵', rug: 'got a new rug 🧶', cur: 'hung new curtains 🪟' };
+const LOOK_LOG = { house: 'painted the house 🏡', roof: 'gave the house a new roof colour 🏠', hdoor: 'painted the front door 🚪', trim: 'painted the window frames 🪟', wall: 'painted the wall 🎨', wp: 'changed the wallpaper 🖼️', floor: 'changed the floor 🪵', fl: 'changed the floor 🪵', rug: 'got a new rug 🧶', cur: 'hung new curtains 🪟' };
 function setLook(key, val) {
   const prev = S.look[key] ?? null;
   remember('look:' + key, () => store.update(`${sp()}/look`, { [key]: prev }));
@@ -2219,6 +2255,7 @@ function route(d, t) {
   if (kitchen?.route(d)) return;
   if (pet?.route(d)) return;
   if (vmail?.route(d)) return;
+  if (outside?.route(d)) return;
   if (d.action === 'pet') { closePanel(); return pet?.openMain(); }
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
@@ -2251,7 +2288,7 @@ function route(d, t) {
   if (d.water) return waterBed(d.water);
   if (d.pickFlower) return pickFlower(d.pickFlower);
   if (d.bouquet) return placeBouquet(d.bouquet);
-  if (d.goRoom) { hideOverlay(); return goThroughDoor(d.goRoom); }
+  if (d.goRoom) { hideOverlay(); return outside.travel(d.goRoom); }
   if ('close' in d) return closePanel();
   if ('dpPick' in d) return pickDP();
   if ('dpRemove' in d) { store.remove(`pics/${me}`); return toast('Back to your emoji face 🙂'); }
@@ -2328,6 +2365,10 @@ function route(d, t) {
   if (d.lookFloor) return setLook('floor', d.lookFloor);
   if (d.lookRug) return setLook('rug', d.lookRug);
   if (d.lookCur) return setLook('cur', d.lookCur);
+  if (d.lookHouse) return setLook('house', d.lookHouse);
+  if (d.lookRoof) return setLook('roof', d.lookRoof);
+  if (d.lookHdoor) return setLook('hdoor', d.lookHdoor);
+  if (d.lookTrim) return setLook('trim', d.lookTrim);
   if (d.theme) {
     const [icon, name, , vals] = THEMES[+d.theme];
     const prev = Object.fromEntries(Object.keys(vals).map(k => [k, S.look[k] ?? null]));
@@ -2376,7 +2417,7 @@ document.addEventListener('change', e => {
 });
 
 const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv', 'mood', 'bed', 'bouquet', 'chess', 'doodle'];
-const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail');
+const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask');
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
 
