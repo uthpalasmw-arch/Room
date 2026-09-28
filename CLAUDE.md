@@ -18,6 +18,7 @@ chat, voice calls, cooking, TV, garden and games. Live at https://uthpalasmw-arc
 | `games.js` | Chess (perft-verified engine, `/chess`) and Doodle Duel (`/doodle`, `/doodleInk`) |
 | `call.js` | Group voice calls (`/call`, `/callsig`) |
 | `pet.js` | Pet (`/pet`): adopt/rehome, looks, needs, growing up, naps on furniture, roams rooms, tricks, eats kitchen dishes; behaviour is computed from time + the shared record so phones stay in sync |
+| `dp.js` | Profile picture crop screen (drag/pinch in a circle → 256px JPEG, stored at `/pics/{id}`) |
 | `sfx.js` | Synthesized sound effects |
 | `dev-server.js` | `node dev-server.js` → http://localhost:5500 for local testing |
 

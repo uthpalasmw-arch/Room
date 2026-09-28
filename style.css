@@ -1129,3 +1129,18 @@ button.game:active { transform: scale(.98); }
 #dock.deco > .panel-body > .chips .chip { flex: none; }
 #dock.deco .hint { display: none; }
 #dock.folded > :not(.slim-top), #dock.dragging > :not(.slim-top) { display: none !important; }
+
+/* ── Profile pictures ── */
+.dp-img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; pointer-events: none; }
+.pface .dp-img { width: 100%; height: 100%; }
+.pface:has(.dp-img) { padding: 2px; }
+.avatar.has-pic .face { width: 100%; height: 100%; padding: calc(.7 * var(--u)); display: block; }
+.avatar.has-pic.left .face { transform: none; }
+#chatbub .cb-face .dp-img { width: 46px; height: 46px; }
+.dp-row { display: flex; align-items: center; gap: 14px; margin: 4px 0 6px; }
+.dp-row .stack { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.pface.dp-big { width: 64px; height: 64px; font-size: 36px; }
+.dp-crop { position: relative; width: min(260px, 70vw); aspect-ratio: 1; margin: 12px auto 6px; border-radius: 16px; overflow: hidden; touch-action: none; cursor: grab; background: #eee; }
+.dp-crop canvas { width: 100%; height: 100%; display: block; }
+.dp-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 200px rgba(20,12,40,.55); pointer-events: none; outline: 3px solid #fff; outline-offset: -3px; }
+.dp-zoom { width: min(260px, 70vw); accent-color: var(--ui); }

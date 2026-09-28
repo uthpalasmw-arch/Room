@@ -1,10 +1,11 @@
-import { createStore } from './store.js?v=10';
-import { createCall } from './call.js?v=10';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=10';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=10';
-import { initTV } from './tv.js?v=10';
-import { initGames } from './games.js?v=10';
-import { initPet } from './pet.js?v=10';
+import { createStore } from './store.js?v=11';
+import { createCall } from './call.js?v=11';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=11';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=11';
+import { initTV } from './tv.js?v=11';
+import { initGames } from './games.js?v=11';
+import { initPet } from './pet.js?v=11';
+import { cropPhoto } from './dp.js?v=11';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -221,7 +222,7 @@ const ONLINE_WINDOW = 45000;
 const REACH = 26;
 
 // ── State ────────────────────────────────────────────────────
-const S = { garden: {}, look: {}, profiles: {}, nicks: {}, presence: {}, avatars: {}, items: {}, strokes: {}, notes: {}, msgs: [], typing: {}, power: null };
+const S = { pics: {}, garden: {}, look: {}, profiles: {}, nicks: {}, presence: {}, avatars: {}, items: {}, strokes: {}, notes: {}, msgs: [], typing: {}, power: null };
 let store, roomId, me, other, call, view = 'living';
 let panel = null, overlayMode = null, spaceUnsubs = [];
 let drawHintShown = false;
@@ -245,6 +246,14 @@ const prof = id => ({ ...DEFAULT_PROFILES[id], ...(S.profiles?.[id] || {}) });
 const nick = id => S.nicks?.[id] || '';
 const called = id => nick(id) || prof(id).name;
 const joined = id => !!S.profiles?.[id];
+// Profile pictures: a photo if they set one, otherwise their emoji face
+const pic = id => S.pics?.[id]?.d || null;
+const faceHTML = id => pic(id) ? `<img class="dp-img" src="${esc(pic(id))}" alt="">` : esc(prof(id).face);
+function setFace(el, id) {
+  const src = pic(id);
+  if (src) { if (el._pic !== src) { el.innerHTML = `<img class="dp-img" src="${esc(src)}" alt="">`; el._pic = src; } }
+  else if (el._pic || el.textContent !== prof(id).face) { el.textContent = prof(id).face; el._pic = null; }
+}
 const isOnline = id => { const p = S.presence[id]; return !!p && p.online && store.now() - p.ts < ONLINE_WINDOW; };
 const roomOf = id => (ROOMS[S.avatars[id]?.rm] ? S.avatars[id].rm : 'living');
 const together = () => isOnline(other) && roomOf(other) === view;
@@ -293,7 +302,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 10;
+const VERSION = 11;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -439,6 +448,7 @@ async function enterRoom() {
 
   store.on('presence', onPresence);
   store.on('avatars', onAvatars);
+  store.on('pics', v => { S.pics = v || {}; renderPresence(); renderAvatars(); renderBubble(); if (panel === 'profile') renderProfilePanel(); });
   store.on('nicks', v => { S.nicks = v || {}; renderPresence(); renderAvatars(); });
   store.on('power', v => { S.power = v; renderPower(); });
   store.on('notes', v => { S.notes = v || {}; renderBoard(); if (panel === 'notes') { renderNotes(); markRead('notes'); } updateBadges(); });
@@ -706,11 +716,11 @@ function renderPresence() {
   const moodTxt = m => m?.e ? `${esc(m.e)} ${esc(m.t || MOODS.find(x => x[0] === m.e)?.[1] || '')}` : '';
   const vc = $('#visitor-chip');
   if (vc) { const on = me !== 'v' && S.profiles?.v && isOnline('v'); vc.hidden = !on; if (on) vc.textContent = `${prof('v').face} ${called('v')}`; }
-  $('#pill-me').innerHTML = `<span class="pface" style="--c:${esc(mp.color)}">${esc(mp.face)}</span><span class="pinfo"><b>${esc(myNick || mp.name)}</b><small>${mp.mood?.e ? moodTxt(mp.mood) : `${ROOMS[view].icon} ${ROOMS[view].name}`}</small></span>`;
+  $('#pill-me').innerHTML = `<span class="pface" style="--c:${esc(mp.color)}">${faceHTML(me)}</span><span class="pinfo"><b>${esc(myNick || mp.name)}</b><small>${mp.mood?.e ? moodTxt(mp.mood) : `${ROOMS[view].icon} ${ROOMS[view].name}`}</small></span>`;
   const status = !joined(other) ? 'Hasn’t joined yet — send the link!'
     : on ? `<i class="dot on"></i>${roomOf(other) === view ? 'Here with you' : `In the ${rm.name.toLowerCase()} ${rm.icon}`}` : `<i class="dot"></i>Away · ${ago(S.presence[other]?.ts)}`;
   const tz = (op.mood?.e ? ` · ${moodTxt(op.mood)}` : '') + (op.tz ? ` · 🕒 ${esc(localTime(op.tz))}` : '');
-  $('#pill-other').innerHTML = `<span class="pface" style="--c:${esc(op.color)}">${esc(op.face)}</span><span class="pinfo"><b>${esc(joined(other) ? called(other) : 'Your partner')}</b><small>${status}${joined(other) ? tz : ''}</small></span>`;
+  $('#pill-other').innerHTML = `<span class="pface" style="--c:${esc(op.color)}">${faceHTML(other)}</span><span class="pinfo"><b>${esc(joined(other) ? called(other) : 'Your partner')}</b><small>${status}${joined(other) ? tz : ''}</small></span>`;
   $$('.k-arcade').forEach(a => a.closest('.item')?.classList.toggle('ready', on));
 }
 
@@ -820,7 +830,8 @@ function renderAvatars() {
     const mood = $('.mood', el); mood.textContent = p.mood?.e || ''; mood.hidden = !p.mood?.e;
     if (seat?.blanket) el.style.setProperty('--blanket', seat.blanket);
     el.style.setProperty('--c', p.color);
-    if (!el._bonked) $('.face', el).textContent = p.face;
+    if (!el._bonked) setFace($('.face', el), id);
+    el.classList.toggle('has-pic', !!pic(id));
     const hat = $('.hat', el);
     hat.textContent = p.hat || '';
     hat.className = 'hat ' + (HAT_CLASS[p.hat] || '');
@@ -881,11 +892,11 @@ function showEmote(id, e) {
 function dizzy(id, ms = 1300, birds = false) {
   const el = avatarEl(id); if (!el) return;
   const face = $('.face', el);
-  el._bonked = true; face.textContent = '😵';
+  el._bonked = true; face.textContent = '😵'; face._pic = null;
   for (let i = 0; i < 3; i++) spawnFx('⭐', el._x, el._y, 17, 'star', { '--a': `${i * 120}deg` });
   if (birds) for (let i = 0; i < 2; i++) spawnFx('🐦', el._x, el._y, 19, 'bird', { '--a': `${60 + i * 180}deg` });
   clearTimeout(el._dz);
-  el._dz = setTimeout(() => { el._bonked = false; face.textContent = prof(id).face; }, ms);
+  el._dz = setTimeout(() => { el._bonked = false; setFace(face, id); }, ms);
 }
 
 // 🏏 BONK
@@ -927,7 +938,7 @@ function playKick(from, k) {
   const u = U(), H = $('#world').clientHeight, x0 = target._x, y0 = target._y;
   const dx1 = (k.wx - x0) * u, dy1 = (k.wy - y0) / 100 * H, dx2 = (k.land.x - x0) * u, dy2 = (k.land.y - y0) / 100 * H;
   target._anim = true; target._bonked = true;
-  $('.face', target).textContent = '😵';
+  $('.face', target).textContent = '😵'; $('.face', target)._pic = null;
   target.style.zIndex = 4500;
   target.classList.add('bonked');
   const anim = target.animate([
@@ -1712,9 +1723,28 @@ function renderGamesPanel() {
     </div>`;
 }
 
+function picBlock() {
+  const p = prof(me);
+  return `<div class="dp-row"><span class="pface dp-big" style="--c:${esc(p.color)}">${faceHTML(me)}</span>
+    <div class="stack"><button class="btn small" data-dp-pick>📷 ${pic(me) ? 'Change photo' : 'Add a photo'}</button>
+    ${pic(me) ? '<button class="btn ghost small" data-dp-remove>Use my emoji instead</button>' : '<small class="muted">Shows as your face in the room</small>'}</div></div>`;
+}
+async function pickDP() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => {
+    const f = inp.files?.[0]; if (!f) return;
+    const d = await cropPhoto(f, { $, showCard, hideOverlay, toast });
+    if (!d) return;
+    await store.set(`pics/${me}`, { d, ts: store.now() });
+    toast('📸 Looking good!'); sfx.pop();
+    logAct('dp', 'has a new profile picture 📸');
+  };
+  inp.click();
+}
 function renderProfilePanel() {
   if (isVisitor) {
-    $('#dock').innerHTML = head('🙂 You (visiting)') + `<div class="panel-body" id="profile-body">${profileForm(me)}
+    $('#dock').innerHTML = head('🙂 You (visiting)') + `<div class="panel-body" id="profile-body">${picBlock()}${profileForm(me)}
       <button class="btn wide" style="margin-top:16px" data-save-profile>Save</button>
       <button class="btn ghost wide" style="margin-top:10px" data-visit-leave>🚪 Leave the house</button></div>`;
     return;
@@ -1723,6 +1753,7 @@ function renderProfilePanel() {
   $('#dock').innerHTML = head('🙂 You') +
     `<div class="panel-body" id="profile-body">
       ${theirNick ? `<div class="status ok">💕 ${esc(prof(other).name)} calls you <b>${esc(theirNick)}</b></div>` : ''}
+      ${picBlock()}
       <h4>Mood</h4>
       <button class="btn ghost wide small" data-mood-open>${prof(me).mood?.e ? `${esc(prof(me).mood.e)} ${esc(prof(me).mood.t || '')} — change` : '🙂 Set your mood'}</button>
       ${profileForm(me)}
@@ -2062,7 +2093,7 @@ function setupBubble() {
 function renderBubble() {
   const bub = $('#chatbub'); if (!bub || !other) return;
   const p = prof(other);
-  $('.cb-face', bub).textContent = p.face;
+  setFace($('.cb-face', bub), other);
   bub.style.setProperty('--c', p.color);
   bub.hidden = panel === 'chat';
   const n = unread('chat'), badge = $('.badge', bub);
@@ -2099,7 +2130,7 @@ function renderMini() {
     list.addEventListener('scroll', () => { if (list.scrollHeight - list.scrollTop - list.clientHeight < 24) $('.mini-new', box).hidden = true; });
   }
   const p = prof(other), face = $('.mini-head .pface', box);
-  face.textContent = p.face; face.style.setProperty('--c', p.color);
+  setFace(face, other); face.style.setProperty('--c', p.color);
   $('.mini-head b', box).textContent = called(other);
   const list = $('.mini-list', box), last = S.msgs.slice(-150);
   const atEnd = list.scrollHeight - list.scrollTop - list.clientHeight < 24, prevN = +list.dataset.n || 0;
@@ -2151,6 +2182,8 @@ function route(d, t) {
   if (d.bouquet) return placeBouquet(d.bouquet);
   if (d.goRoom) { hideOverlay(); return goThroughDoor(d.goRoom); }
   if ('close' in d) return closePanel();
+  if ('dpPick' in d) return pickDP();
+  if ('dpRemove' in d) { store.remove(`pics/${me}`); return toast('Back to your emoji face 🙂'); }
   if ('fold' in d) { const dk = $('#dock'); dk.classList.toggle('folded'); t.textContent = dk.classList.contains('folded') ? '▴' : '▾'; return; }
   if (d.panel) return openPanel(d.panel);
   if (d.action === 'call') return onCallButton();
