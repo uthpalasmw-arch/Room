@@ -1,12 +1,12 @@
-import { createStore } from './store.js?v=12';
-import { createCall } from './call.js?v=12';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=12';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=12';
-import { initTV } from './tv.js?v=12';
-import { initGames } from './games.js?v=12';
-import { initPet } from './pet.js?v=12';
-import { cropPhoto } from './dp.js?v=12';
-import { initVmail } from './vmail.js?v=12';
+import { createStore } from './store.js?v=13';
+import { createCall } from './call.js?v=13';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=13';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=13';
+import { initTV } from './tv.js?v=13';
+import { initGames } from './games.js?v=13';
+import { initPet } from './pet.js?v=13';
+import { cropPhoto } from './dp.js?v=13';
+import { initVmail } from './vmail.js?v=13';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -305,7 +305,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 12;
+const VERSION = 13;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -512,7 +512,19 @@ async function enterRoom() {
   setupWallDrawing();
   await openSpace(view);
   store.on('pet', v => pet.onPet(v));
-  vmail = initVmail({ $, esc, sfx, store, me: () => me, other: () => other, called, ago, toast, showCard, hideOverlay, overlayMode: () => overlayMode, isVisitor: () => isVisitor });
+  vmail = initVmail({ $, esc, sfx, store, me: () => me, other: () => other, called, ago, toast, showCard, hideOverlay, overlayMode: () => overlayMode, isVisitor: () => isVisitor,
+    view: () => view, goRoom: rm => goThroughDoor(rm),
+    async findMachine() {
+      if (Object.values(S.items).some(i => i.k === 'vmail')) return view;
+      for (const rm of Object.keys(ROOMS)) {
+        if (rm === view) continue;
+        const its = await store.once(`spaces/${rm}/items`);
+        if (Object.values(its || {}).some(i => i.k === 'vmail')) return rm;
+      }
+      return null;
+    },
+    focusMachine() { const it = Object.values(S.items).find(i => i.k === 'vmail'); if (it) centerOn(it.x, it.y); },
+  });
   store.on('vmail', v => vmail.onData(v));
 
   call = createCall(store, me, callUI);
@@ -535,6 +547,7 @@ async function openSpace(rid) {
   spaceUnsubs.forEach(u => u());
   view = rid;
   S.look = {}; S.items = {}; S.strokes = {};
+  undoStack = [];
   selectItem(null);
   $('#items').innerHTML = '';
   $('#stage').classList.remove(...Object.keys(ROOMS).map(r => 'rm-' + r));   // clear every room's look
@@ -563,12 +576,13 @@ async function openSpace(rid) {
   centerOn(mine?.rm === rid && mine.x != null ? mine.x : roomW() / 2 - 20);
   renderLook(); renderAvatars(); renderPresence(); renderBoard(); renderPower();
   pet?.render(true);
+  vmail?.refresh();
 }
 
 function showRoomPicker() {
   const here = rm => ['a', 'b'].filter(id => (id === me || isOnline(id)) && roomOf(id) === rm && rm !== view).map(id => prof(id).face).join('');
   showCard(`<div class="big">🚪</div><h2>Where to?</h2>
-    <div class="room-pick">${Object.entries(ROOMS).filter(([k]) => k !== view).map(([k, r]) => `<button data-go-room="${k}"><span>${r.icon}</span><div>${r.name} ${here(k)}<small>${ROOM_BLURB[k]}</small></div></button>`).join('')}</div>
+    <div class="room-pick">${Object.entries(ROOMS).filter(([k]) => k !== view).map(([k, r]) => `<button data-go-room="${k}"><span>${r.icon}</span><div>${r.name} ${here(k)}${vmail?.waitingIn() === k ? ' <span class="vm-dot-txt">🔴 📼 1</span>' : ''}<small>${ROOM_BLURB[k]}</small></div></button>`).join('')}</div>
     <button class="btn ghost wide small" data-dismiss style="margin-top:12px">Stay here</button>`, 'rooms');
 }
 async function goThroughDoor(next) {
@@ -1088,7 +1102,7 @@ function setupStage() {
   const stage = $('#stage');
   stage.addEventListener('click', e => {
     if (stage._panned) { stage._panned = false; return; }
-    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap')) return;
+    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float')) return;
     const hadEmote = !$('#emotebar').hidden;
     const prevTarget = emoteTarget;
     hideEmotebar();
@@ -1106,7 +1120,7 @@ function setupStage() {
       return hadEmote && prevTarget === id ? null : openEmotebar(id);
     }
     const itemEl = e.target.closest('.item');
-    if (itemEl) return tapItem(itemEl.dataset.id);
+    if (itemEl) return tapItem(itemEl.dataset.id, worldPt(e));
     if (e.target.closest('#board')) return openPanel('notes');
     if (e.target.closest('#door')) return showRoomPicker();
     if (e.target.closest('#lamp')) return toggleLights();
@@ -1142,25 +1156,40 @@ function setupStage() {
     if (!drag) return;
     const d = drag; drag = null;
     $('#dock').classList.remove('dragging');
-    if (d.moved) { $('#stage')._panned = true; store.update(`${sp()}/items/${d.id}`, { x: +d.x.toFixed(2), y: +d.y.toFixed(2) }); }
+    if (d.moved) { const it0 = S.items[d.id]; if (it0) remember('move:' + d.id + ':' + Date.now(), restoreFields(d.id, { x: it0.x, y: it0.y })); $('#stage')._panned = true; store.update(`${sp()}/items/${d.id}`, { x: +d.x.toFixed(2), y: +d.y.toFixed(2) }); }
   };
   layer.addEventListener('pointerup', end);
   layer.addEventListener('pointercancel', end);
 }
 
-function tapItem(id) {
+// Which seat of a sofa/bed is nearest to where you tapped
+function nearestSeat(id, p) {
+  const it = S.items[id], set = it && SEATS[it.k];
+  if (!set || !p) return me === 'a' ? 0 : 1;
+  const n = (set[it.face || 'front'] || set.front).length;
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < n; i++) { const d = Math.abs(seatPos(id, i).x - p.x); if (d < bd) { bd = d; best = i; } }
+  return best;
+}
+function tapItem(id, p) {
   const it = S.items[id]; if (!it) return;
   if (it.t === 'photo') return showPhoto(it);
   if (it.t === 'food') return kitchen.openFood(id);
   if (it.k === 'fridge') return kitchen.openFridgeMenu();
   if (FURN[it.k]?.cook) return kitchen.openBook(APPLIANCE_CAT[it.k]);
   if (SEATS[it.k]) {
-    const mine = S.avatars[me]?.seat;
-    if (mine?.id === id) {   // already sitting here → stand up in front of it
+    const mine = S.avatars[me]?.seat, want = nearestSeat(id, p);
+    if (mine?.id === id) {
+      // tapped the other side (and it's free) → shuffle over; otherwise stand up in front of it
+      if (want !== mine.i && freeSeat(id, want) === want) {
+        const pos = seatPos(id, want);
+        store.update(`avatars/${me}`, { seat: { id, i: want }, x: pos.x, y: pos.y }); sfx.pop();
+        return;
+      }
       store.update(`avatars/${me}`, { seat: null, x: it.x, y: clamp(it.y + 4, 60, 97) });
       return;
     }
-    const i = freeSeat(id, me === 'a' ? 0 : 1);
+    const i = freeSeat(id, want);
     if (i < 0) return toast('No room left there! 🙈');
     const pos = seatPos(id, i);
     store.update(`avatars/${me}`, { seat: { id, i }, x: pos.x, y: pos.y });
@@ -1285,11 +1314,14 @@ function itemAction(act) {
       const el = $(`#items [data-id="${id}"]`); el?.classList.remove('shake'); void el?.offsetWidth; el?.classList.add('shake');
       return protectedToast(it, 'writing');
     }
+    const pd = it.t === 'photo' && it.pid ? photoCache.get(it.pid) : null;
+    remember('del:' + id, () => { store.set(path, it); if (pd) store.set(`photos/${it.pid}`, { d: pd, by: me, ts: store.now() }); });
     store.remove(path);
     if (it.t === 'photo' && it.pid) { store.remove(`photos/${it.pid}`); photoCache.delete(it.pid); logAct('photo-rm', `took down a photo in the ${ROOMS[view].name.toLowerCase()} 🖼️`); }
     selectItem(null); sfx.pop();
     return;
   }
+  remember(act + ':' + id, restoreFields(id, { z: it.z ?? null, fl: it.fl ?? null, face: it.face ?? null, s: it.s ?? 1 }));
   if (act === 'front') {
     const top = Math.max(1000, ...Object.values(S.items).map(i => i.z || 0));
     return store.update(path, { z: top + 1 });
@@ -1302,9 +1334,36 @@ function itemAction(act) {
   const s = clamp((it.s || 1) * (act === 'bigger' ? 1.15 : 1 / 1.15), .35, 3.5);
   store.update(path, { s: +s.toFixed(2) });
 }
+// ↶ Undo: remembers your last 3 decorating steps in this room
+let undoStack = [];
+function remember(key, fn) {
+  const last = undoStack[undoStack.length - 1];
+  if (last && last.key === key && Date.now() - last.at < 1500) { last.at = Date.now(); return; }   // rapid taps = one step
+  undoStack.push({ key, fn, at: Date.now(), rm: view });
+  undoStack = undoStack.slice(-3);
+  renderUndo();
+}
+function renderUndo() {
+  const b = $('[data-deco-undo]'); if (!b) return;
+  const n = undoStack.filter(u => u.rm === view).length;
+  b.disabled = !n; b.innerHTML = `↶${n ? `<sup>${n}</sup>` : ''}`;
+}
+function undoDeco() {
+  const i = undoStack.map(u => u.rm).lastIndexOf(view);
+  if (i < 0) return toast('Nothing to undo');
+  const [u] = undoStack.splice(i, 1);
+  u.fn(); sfx.swish(); renderUndo();
+}
+// Put back fields of an item (null removes a field) — only if it still exists
+function restoreFields(id, fields) {
+  const path = `${sp()}/items/${id}`;
+  return () => { if (S.items[id]) store.update(path, fields); else toast('That was removed in the meantime 🤷'); };
+}
 function addItem(data, logKey, logText) {
   const id = store.push(`${sp()}/items`, { s: 1, ...data, by: me, ts: store.now() });
+  remember('add:' + id, () => { store.remove(`${sp()}/items/${id}`); if (data.t === 'photo' && data.pid) store.remove(`photos/${data.pid}`); if (selectedItem === id) selectItem(null); });
   selectItem(id); sfx.pop();
+  setTimeout(() => { const el = $(`#items [data-id="${id}"]`); if (el) { el.classList.add('just-added'); setTimeout(() => el.classList.remove('just-added'), 1600); } }, 60);
   if (logKey) logAct(logKey, logText);
   return id;
 }
@@ -1616,7 +1675,7 @@ function openPanel(name) {
 }
 function closePanel() {
   panel = null;
-  $('#dock').hidden = true; $('#dock').innerHTML = ''; $('#dock').classList.remove('folded', 'dragging');
+  $('#dock').hidden = true; $('#dock').innerHTML = ''; $('#dock').classList.remove('folded', 'dragging', 'expanded');
   $$('#toolbar [data-panel]').forEach(b => b.classList.remove('active'));
   $('#stage').classList.remove('decorating', 'drawing', 'erasing');
   selectItem(null);
@@ -1662,11 +1721,13 @@ function pinNote() {
 function renderDecoratePanel() {
   const tabs = [['furniture', '🛋️ Furniture'], ['photos', '🖼️ Photos'], ['stickers', '🧸 Stuff'], ['themes', '✨ Themes'], ['wall', '🧱 Wall'], ['floor', '🪵 Floor'], ['text', '🔤 Words']];
   $('#dock').innerHTML = `<div class="slim-top"><div class="tabs">${tabs.map(([k, l]) => `<button class="chip ${k === decoTab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+      <button class="x" data-deco-undo aria-label="Undo">↶</button><button class="x" data-deco-all aria-label="Show all">⤢</button>
       <button class="x" data-fold aria-label="Fold the panel">${$('#dock').classList.contains('folded') ? '▴' : '▾'}</button><button class="x" data-close aria-label="Close">✕</button></div>
     <div class="sel-strip" id="sel-strip" hidden></div>
     <div class="panel-body" id="deco-body"></div>`;
   renderSelStrip();
   renderDecoBody();
+  renderUndo();
 }
 function renderSelStrip() {
   const box = $('#sel-strip'); if (!box) return;
@@ -1704,6 +1765,8 @@ function renderDecoBody() {
 }
 const LOOK_LOG = { wall: 'painted the wall 🎨', wp: 'changed the wallpaper 🖼️', floor: 'changed the floor 🪵', fl: 'changed the floor 🪵', rug: 'got a new rug 🧶', cur: 'hung new curtains 🪟' };
 function setLook(key, val) {
+  const prev = S.look[key] ?? null;
+  remember('look:' + key, () => store.update(`${sp()}/look`, { [key]: prev }));
   store.update(`${sp()}/look`, { [key]: val });
   logAct(key, `${LOOK_LOG[key]} in the ${ROOMS[view].name.toLowerCase()}`);
 }
@@ -2192,6 +2255,8 @@ function route(d, t) {
   if ('close' in d) return closePanel();
   if ('dpPick' in d) return pickDP();
   if ('dpRemove' in d) { store.remove(`pics/${me}`); return toast('Back to your emoji face 🙂'); }
+  if ('decoUndo' in d) return undoDeco();
+  if ('decoAll' in d) { const dk = $('#dock'); dk.classList.remove('folded'); dk.classList.toggle('expanded'); return; }
   if ('fold' in d) { const dk = $('#dock'); dk.classList.toggle('folded'); t.textContent = dk.classList.contains('folded') ? '▴' : '▾'; return; }
   if (d.panel) return openPanel(d.panel);
   if (d.action === 'call') return onCallButton();
@@ -2255,8 +2320,8 @@ function route(d, t) {
   if (d.bonk) return tryBonk(d.bonk);
   if (d.kick) return tryKick(d.kick);
   if (d.item) return itemAction(d.item);
-  if (d.itemColor) { if (S.items[selectedItem]) store.update(`${sp()}/items/${selectedItem}`, { c: d.itemColor }); return; }
-  if (d.itemFrame) { if (S.items[selectedItem]) store.update(`${sp()}/items/${selectedItem}`, { f: d.itemFrame }); return; }
+  if (d.itemColor) { const it = S.items[selectedItem]; if (it) remember('color:' + selectedItem, restoreFields(selectedItem, { c: it.c ?? null })); if (it) store.update(`${sp()}/items/${selectedItem}`, { c: d.itemColor }); return; }
+  if (d.itemFrame) { const it = S.items[selectedItem]; if (it) remember('frame:' + selectedItem, restoreFields(selectedItem, { f: it.f ?? null })); if (it) store.update(`${sp()}/items/${selectedItem}`, { f: d.itemFrame }); return; }
   if (d.tab) { decoTab = d.tab; $$('.tabs .chip').forEach(c => c.classList.toggle('on', c.dataset.tab === decoTab)); return renderDecoBody(); }
   if (d.set) return setLook(d.set, d.val);
   if (d.lookWall) return setLook('wall', d.lookWall);
@@ -2265,12 +2330,15 @@ function route(d, t) {
   if (d.lookCur) return setLook('cur', d.lookCur);
   if (d.theme) {
     const [icon, name, , vals] = THEMES[+d.theme];
+    const prev = Object.fromEntries(Object.keys(vals).map(k => [k, S.look[k] ?? null]));
+    remember('theme', () => store.update(`${sp()}/look`, prev));
     store.update(`${sp()}/look`, vals); sfx.pop();
+    $('#dock').classList.remove('expanded');
     logAct('theme', `made the ${ROOMS[view].name.toLowerCase()} ${name} themed ${icon}`); return;
   }
   if (d.setStickers) { stickerSet = d.setStickers; return renderDecoBody(); }
-  if (d.sticker) return addSticker(d.sticker);
-  if (d.furn) return addFurniture(d.furn);
+  if (d.sticker) { $('#dock').classList.remove('expanded'); return addSticker(d.sticker); }
+  if (d.furn) { $('#dock').classList.remove('expanded'); return addFurniture(d.furn); }
   if (d.frame) { photoFrame = d.frame; $$('[data-frame]').forEach(x => x.classList.toggle('on', x === t)); return; }
   if ('addPhoto' in d) return $('#photo-input').click();
   if ('addText' in d) return addText();

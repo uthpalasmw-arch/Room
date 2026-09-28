@@ -11,6 +11,7 @@ export function initVmail(ctx) {
   let rec = null;       // current recording session
   let take = null;      // { blob, url, dur } recorded but not sent yet
   let player = null;
+  let machineRm = null;   // which room the answering machine is in
 
   const me = () => ctx.me(), other = () => ctx.other();
   const secs = ms => Math.max(1, Math.round((ms || 0) / 1000));
@@ -28,8 +29,33 @@ export function initVmail(ctx) {
     }
     if (!V && prev) lastTs = 0;
     decorateAll();
+    locate();
     if (ctx.overlayMode() === 'vmail' && !rec && !take && !player) open();
   }
+
+  // 🔴 Big red alert at the top + a dot on the door when the machine is in another room
+  async function locate() {
+    if (V && forMe()) machineRm = await ctx.findMachine();
+    refresh();
+  }
+  function refresh() {
+    const on = !!V && forMe() && !ctx.isVisitor();
+    let f = $('#vm-float');
+    if (on && !f) {
+      f = document.createElement('button');
+      f.id = 'vm-float'; f.dataset.vm = 'go';
+      f.innerHTML = '<b>1</b>📼 New voice message';
+      $('#stage').append(f);
+    }
+    if (f) f.hidden = !on;
+    $('#door')?.classList.toggle('vm-dot', on && !!machineRm && machineRm !== ctx.view());
+  }
+  function goToMachine() {
+    if (!machineRm) return ctx.toast('📼 Add an answering machine (Decorate → Furniture) to listen');
+    if (machineRm !== ctx.view()) return ctx.goRoom(machineRm).then(() => setTimeout(() => { ctx.focusMachine(); open(); }, 500));
+    ctx.focusMachine(); open();
+  }
+  const waitingIn = () => (V && forMe() ? machineRm : null);
 
   // The machine's little screen + light
   function decorate(el) {
@@ -193,7 +219,8 @@ export function initVmail(ctx) {
   function route(d) {
     if (!d.vm) return false;
     const k = d.vm;
-    if (k === 'play') playNew();
+    if (k === 'go') goToMachine();
+    else if (k === 'play') playNew();
     else if (k === 'replay' && V) play(V.d);
     else if (k === 'preview' && take) play(take.url);
     else if (k === 'redo' || k === 'reply' || k === 'again') { discard(); recorderCard(); }
@@ -205,5 +232,5 @@ export function initVmail(ctx) {
   // Closing the card any other way stops the mic and playback
   function closed() { if (rec) stopRec(true); discard(); }
 
-  return { onData, decorate, open, route, closed, CLOSABLE: ['vmail'] };
+  return { onData, decorate, open, route, closed, refresh: locate, waitingIn, CLOSABLE: ['vmail'] };
 }

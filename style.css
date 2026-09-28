@@ -1158,7 +1158,12 @@ button.game:active { transform: scale(.98); }
 .k-vmail .vm-keys i { position: static !important; display: inline-block !important; width: calc(1.4 * var(--u)); height: calc(1.2 * var(--u)); margin-right: calc(.4 * var(--u)); background: #f4f1fb; border-radius: calc(.3 * var(--u)); }
 .item.vm-new .k-vmail .vm-light { background: #ff2d55; box-shadow: 0 0 calc(2 * var(--u)) #ff2d55; animation: vm-blink 1s steps(2) infinite; }
 .item.vm-sent .k-vmail .vm-light { background: #ffb703; box-shadow: 0 0 calc(1.2 * var(--u)) #ffb703; }
-.item.vm-new::after { content: '💌'; position: absolute; left: 50%; top: calc(-6 * var(--u)); font-size: calc(5 * var(--u)); transform: translateX(-50%); animation: vm-bob 1.2s ease-in-out infinite alternate; pointer-events: none; }
+.item.vm-new::after {
+  content: '1'; position: absolute; right: calc(-2.5 * var(--u)); top: calc(-4.5 * var(--u)); min-width: calc(6.4 * var(--u)); height: calc(6.4 * var(--u));
+  border-radius: 99px; background: #ff1f3d; color: #fff; font: 700 calc(4 * var(--u)) 'Fredoka', sans-serif; line-height: calc(6.4 * var(--u)); text-align: center;
+  box-shadow: 0 0 0 calc(.7 * var(--u)) #fff, 0 calc(.6 * var(--u)) calc(1.4 * var(--u)) rgba(0,0,0,.35); animation: vm-ping 1.4s ease-out infinite; pointer-events: none; z-index: 2;
+}
+@keyframes vm-ping { 0% { box-shadow: 0 0 0 calc(.7 * var(--u)) #fff, 0 0 0 calc(.7 * var(--u)) rgba(255,31,61,.7); } 100% { box-shadow: 0 0 0 calc(.7 * var(--u)) #fff, 0 0 0 calc(5 * var(--u)) rgba(255,31,61,0); } }
 @keyframes vm-blink { 50% { opacity: .25; } }
 @keyframes vm-bob { to { translate: 0 calc(-1.2 * var(--u)); } }
 .vm-card .vm-hero { font-size: 52px; line-height: 1; }
@@ -1173,3 +1178,26 @@ button.game:active { transform: scale(.98); }
 .vm-mic span { width: 76px; height: 76px; border-radius: 50%; background: #fff; display: grid; place-items: center; }
 .vm-mic.on span { background: #ffe3ea; animation: vm-pulse .8s ease-in-out infinite alternate; }
 @keyframes vm-pulse { to { transform: scale(.92); } }
+
+/* ↶ undo, ⤢ show all, easier grabbing */
+#dock.slim .x sup { font-size: 9px; font-weight: 700; color: var(--ui); margin-left: 1px; }
+#dock.slim .x:disabled { opacity: .35; }
+#dock.slim.expanded { max-height: 62dvh; }
+#dock.slim.expanded .furn-grid, #dock.slim.expanded .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); overflow: visible; }
+#dock.slim.expanded .furn-grid button, #dock.slim.expanded .themes button { width: auto; }
+#dock.slim.expanded .stickers { grid-auto-flow: row; grid-template-rows: none; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); grid-auto-columns: auto; }
+#dock.slim.expanded [data-deco-all] { background: var(--ui); color: #fff; }
+#stage.decorating .item:not(.food)::before { content: ''; position: absolute; inset: calc(-3 * var(--u)); }
+.item.just-added { animation: just-added 1.5s ease-out; }
+@keyframes just-added { 0%, 40%, 80% { filter: drop-shadow(0 0 calc(2 * var(--u)) #fff) drop-shadow(0 0 calc(3 * var(--u)) #ffd60a); } 20%, 60%, 100% { filter: none; } }
+
+/* 🔴 voice mail: floating alert + door dot */
+#vm-float {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 6500; display: flex; align-items: center; gap: 8px;
+  background: #ff1f3d; color: #fff; font-weight: 700; font-size: 14px; padding: 7px 14px 7px 8px; border-radius: 99px;
+  box-shadow: 0 4px 14px rgba(255,31,61,.5); animation: vm-float-pulse 1.4s ease-in-out infinite; white-space: nowrap;
+}
+#vm-float b { background: #fff; color: #ff1f3d; min-width: 24px; height: 24px; border-radius: 99px; display: grid; place-items: center; font-size: 14px; }
+@keyframes vm-float-pulse { 50% { transform: translateX(-50%) scale(1.06); box-shadow: 0 4px 22px rgba(255,31,61,.8); } }
+#door.vm-dot::after { content: '1'; position: absolute; right: calc(-2 * var(--u)); top: calc(-2 * var(--u)); width: calc(5.4 * var(--u)); height: calc(5.4 * var(--u)); border-radius: 50%; background: #ff1f3d; color: #fff; font: 700 calc(3.4 * var(--u)) 'Fredoka', sans-serif; display: grid; place-items: center; box-shadow: 0 0 0 calc(.6 * var(--u)) #fff; z-index: 3; }
+.room-pick .vm-dot-txt { color: #ff1f3d; font-weight: 700; }
