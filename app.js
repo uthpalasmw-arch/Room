@@ -451,6 +451,7 @@ async function enterRoom() {
     showCard, hideOverlay, overlayMode: () => overlayMode, toast, ago,
     together, isOnline, roomOf, called, joined, roomName: rm => ROOMS[rm]?.name || rm,
     avatar: id => S.avatars[id], avatarEl, spawnFx,
+    petName: () => pet?.name(), feedPet: id => pet?.feedDish(id),
   });
   store.on('cook', v => kitchen.onSession(v));
   store.on('fridge', v => kitchen.setFridge(v));
@@ -488,6 +489,7 @@ async function enterRoom() {
     me: () => me, other: () => other, view: () => view, items: () => S.items, roomW, roomOf, isOnline, centerOn,
     overlayMode: () => overlayMode, isVisitor: () => isVisitor, roomName: rm => ROOMS[rm]?.name || rm,
     goRoom: rm => goThroughDoor(rm),
+    rooms: () => Object.keys(ROOMS), doorSpot: rm => DOOR_SPOT[rm] || { x: 14, y: 64 },
   });
   store.on('garden', v => { S.garden = v || {}; $$('.item[data-kind="furn:flowerbed"]').forEach(renderBed); if (overlayMode === 'bed') showBed(openBedId); });
   setInterval(flyAround, 2600);

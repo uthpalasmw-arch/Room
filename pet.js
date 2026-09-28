@@ -22,7 +22,15 @@ const CYCLE = 20 * MIN;             // one nap per cycle
 const NAP = { baby: 9 * MIN, young: 7 * MIN, adult: 5 * MIN };
 const SLOT = 8000;                  // a new little activity every 8 seconds
 const ZONE = 6;                     // slots spent roaming one part of the room
-const ACT_MS = { cuddle: 5000, feed: 6000, treat: 3500, play: 8000, call: 20000, sleep: 10 * MIN, bye: 4000 };
+const ACT_MS = { cuddle: 5000, feed: 6000, treat: 3500, play: 8000, call: 20000, sleep: 10 * MIN, bye: 4000, dish: 6500, trick: 3800 };
+const ROAM = 30 * MIN;              // it may wander to another room every half hour…
+const STAY = 30 * MIN;              // …but stays put for a while after you call it somewhere
+// Tricks it learns as it grows up
+const TRICKS = [
+  ['sit', '🪑', 'Sit', 'baby'], ['spin', '🌀', 'Spin', 'baby'], ['paw', '✋', 'High-five', 'young'],
+  ['roll', '🔄', 'Roll over', 'young'], ['dead', '💫', 'Play dead', 'adult'], ['dance', '🎵', 'Dance', 'adult'],
+];
+const STAGE_N = { baby: 0, young: 1, adult: 2 };
 const AGE = { young: 3 * DAY, adult: 10 * DAY };
 const SCALE = { baby: .68, young: .84, adult: 1 };
 const STAGE_NAME = { baby: 'Baby', young: 'Young', adult: 'Grown up' };
@@ -129,6 +137,17 @@ export function initPet(ctx) {
   const stage = (t = now()) => ageMs(t) >= AGE.adult ? 'adult' : ageMs(t) >= AGE.young ? 'young' : 'baby';
   const name = () => P?.name || 'your pet';
   const act = t => (P?.act && t - P.act.ts < (ACT_MS[P.act.k] || 0) && t >= P.act.ts - 2000) ? P.act : null;
+  // Which room it's in: where it was put for a while, then it roams — usually to wherever someone is.
+  function room(t = now()) {
+    if (!P) return null;
+    if (t - (P.rmAt || 0) < STAY || act(t)) return P.rm;
+    const block = Math.floor(t / ROAM), s = seed(), rooms = ctx.rooms();
+    const home = ['a', 'b'].filter(id => (id === ctx.me() || ctx.isOnline(id)) && ctx.roomOf(id)).sort();
+    if (home.length && rnd(s, 'follow', block) < .7) return ctx.roomOf(home[Math.floor(rnd(s, 'whom', block) * home.length)]);
+    if (rnd(s, 'stay', block) < .35) return P.rm;
+    return rooms[Math.floor(rnd(s, 'room', block) * rooms.length)];
+  }
+  const knows = tr => STAGE_N[stage()] >= STAGE_N[tr[3]];
 
   // Places to curl up in the current room
   function napSpots() {
@@ -177,6 +196,8 @@ export function initPet(ctx) {
       if (a.k === 'sleep') { const s = napSpot('forced' + a.ts); return { mode: 'sleep', ...s }; }
       if (a.k === 'play') return el0 < 3600 ? { mode: 'run', x: a.bx, y: a.by } : { mode: 'happy', x: a.x, y: a.y };
       if (a.k === 'feed' || a.k === 'treat') return { mode: 'eat', x: a.x, y: a.y, z: a.z };
+      if (a.k === 'dish') return { mode: el0 < 1500 ? 'happy' : 'dish', x: a.x, y: a.y, z: a.z, left: false };
+      if (a.k === 'trick') return { mode: 'trick', trick: a.t, x: a.x, y: a.y, z: a.z };
       if (a.k === 'bye') return { mode: 'happy', x: a.x, y: a.y, z: a.z };
       return { mode: el0 < 5000 ? 'happy' : 'sit', x: a.x, y: a.y, z: a.z };
     }
@@ -190,7 +211,7 @@ export function initPet(ctx) {
     if (f < 20 && r < .6) return { mode: 'beg', ...base, bubble: '🍖' };
     if (j < 20 && r < .5) return { mode: 'mope', ...base, bubble: '💧' };
     if (r < .2) {   // go say hi to someone who's here
-      const here = ['a', 'b', 'v'].filter(id => (id === ctx.me() || ctx.isOnline(id)) && ctx.roomOf(id) === P.rm && ctx.avatarEl(id));
+      const here = ['a', 'b', 'v'].filter(id => (id === ctx.me() || ctx.isOnline(id)) && ctx.roomOf(id) === room(t) && ctx.avatarEl(id));
       const who = here[Math.floor(rnd(s, 'who', slot) * here.length)];
       const pos = who && nearAvatar(who, rnd(s, 'side', slot) < .5 ? -1 : 1);
       if (pos) return { mode: 'sit', ...pos };
@@ -218,11 +239,27 @@ export function initPet(ctx) {
     drawnKey = key; el._x = null;
     return el;
   }
+  let lastRm = null;
+  function drop() { el?.remove(); el = null; drawnKey = ''; hideBar(); }
   function render(reset = false) {
-    const t = now();
-    if (!P || P.rm !== ctx.view()) { el?.remove(); el = null; drawnKey = ''; hideBar(); return; }
+    const t = now(), rm = P && room(t), was = lastRm;
+    lastRm = rm;
+    if (reset && el?._leaving) drop();
+    if (!P) return drop();
+    if (rm !== ctx.view()) {
+      if (el && !el._leaving && !reset && was === ctx.view() && el._x != null) leave(rm);
+      else if (!el?._leaving) drop();
+      return;
+    }
+    if (el?._leaving) drop();
+    const entering = !reset && was && was !== rm && !el;
     ensureEl();
     if (reset) el._x = null;
+    if (entering) {   // trots in through the door
+      const d = ctx.doorSpot(rm);
+      el.style.transition = 'none'; el.style.left = ctx.ux(d.x); el.style.top = d.y + '%';
+      el._x = d.x; el._y = d.y; void el.offsetWidth;
+    }
     const b = brain(t), st = stage(t);
     let mode = b.mode;
     if (Date.now() < scaredUntil && mode !== 'sleep') mode = 'scared';
@@ -242,8 +279,10 @@ export function initPet(ctx) {
       el.style.left = ctx.ux(b.x); el.style.top = b.y + '%';
     }
     const walking = Date.now() < (el._walkUntil || 0) && mode !== 'run';
+    if (!walking && b.left != null) el.classList.toggle('pet-left', b.left);
     el.style.zIndex = b.z ?? Math.round(b.y * 10) + 2;
     const cls = ['pet-sprite', 'pet-' + st, 'pet-m-' + (walking ? 'walk' : mode)];
+    if (mode === 'trick' && !walking) cls.push('pet-t-' + b.trick);
     if (el.classList.contains('pet-left')) cls.push('pet-left');
     if (walking && mode === 'sleep') cls.push('pet-sleepy');
     if (full(t) < 25) cls.push('pet-hungry');
@@ -256,15 +295,28 @@ export function initPet(ctx) {
     if (bar && !bar.hidden) placeBar();
   }
 
+  function leave(rm) {
+    const d = ctx.doorSpot(ctx.view()), e = el;
+    e._leaving = true; hideBar();
+    const dur = clamp(Math.hypot(d.x - e._x, (d.y - e._y) / ctx.UPCT) / 16, .6, 7);
+    e.classList.toggle('pet-left', d.x < e._x);
+    e.className = e.className.replace(/pet-m-\S+/, 'pet-m-walk');
+    e.style.transition = `left ${dur}s linear, top ${dur}s linear, opacity .4s ${dur}s`;
+    e.style.left = ctx.ux(d.x); e.style.top = d.y + '%'; e.style.opacity = '0';
+    setTimeout(() => { if (el === e) drop(); else e.remove(); }, dur * 1000 + 450);
+    ctx.toast(`${PET_TYPES[P.type].e} ${esc(name())} trotted off to the ${esc(ctx.roomName(rm).toLowerCase())}`, 2600);
+  }
+
   function onPet(v) {
     const prev = P;
     P = v && v.type ? v : null;
     if (!P) { if (prev) { el?.remove(); el = null; drawnKey = ''; hideBar(); } ctx.refresh?.(); return; }
-    if (!prev && Date.now() - started < 15000 && !ctx.isOnline(ctx.other()) && P.rm === ctx.view() && !act(now())) startWelcome();
+    if (!prev && Date.now() - started < 15000 && !ctx.isOnline(ctx.other()) && room() === ctx.view() && !act(now())) startWelcome();
     const a = P.act;
     if (!actInit) { actInit = true; lastAct = a?.ts || 0; }
     else if (a && a.ts !== lastAct) { lastAct = a.ts; if (now() - a.ts < 6000) playAct(a); }
     checkGrowth();
+    if (Date.now() - started > 5000) remind();
     render();
     if (ctx.overlayMode() === 'petInfo') showInfo();
   }
@@ -297,7 +349,7 @@ export function initPet(ctx) {
     }
   }
   function playAct(a) {
-    if (P.rm !== ctx.view()) return;
+    if (room() !== ctx.view()) return;
     const k = a.k;
     if (k === 'cuddle') { setTimeout(() => hearts(a.x, a.y), 700); setTimeout(() => sfx.pop(), 700); }
     if (k === 'feed' || k === 'treat') { [900, 1600, 2300].forEach(ms => setTimeout(() => sfx.munch(), ms)); if (k === 'treat') setTimeout(() => hearts(a.x, a.y, 3, ['🦴', '💕']), 900); }
@@ -305,6 +357,15 @@ export function initPet(ctx) {
     if (k === 'call') setTimeout(() => sfx.swish(), 200);
     if (k === 'bye') { hearts(a.x, a.y, 6, ['👋', '💕', '🏡']); sfx.yay(); }
     if (k === 'sleep') sfx.swish();
+    if (k === 'dish') {
+      [1800, 2500, 3200, 3900].forEach(ms => setTimeout(() => sfx.munch(), ms));
+      setTimeout(() => hearts(a.x, a.y, 3, a.bad ? ['🤢', '💨'] : ['😋', '💕']), 2600);
+    }
+    if (k === 'trick') {
+      const fx = { sit: ['👏'], spin: ['🌀', '✨'], paw: ['✋', '💥'], roll: ['✨', '⭐'], dead: ['💫', '😵'], dance: ['🎵', '🎶'] }[a.t] || ['✨'];
+      setTimeout(() => { hearts(a.x, a.y, 4, fx); sfx.pop(); }, 900);
+      setTimeout(() => sfx.yay(), 2600);
+    }
   }
   function throwBall(a) {
     const ball = document.createElement('div');
@@ -319,14 +380,21 @@ export function initPet(ctx) {
   }
 
   // ── Doing things with the pet ─────────────────────────────
-  function doAct(k) {
+  // Where the pet is on screen right now (it may be mid-walk)
+  function here() {
+    if (!el || el._x == null || el._leaving) return null;
+    const cs = getComputedStyle(el), H = el.parentElement?.clientHeight;
+    const x = parseFloat(cs.left) / ctx.U(), y = H ? parseFloat(cs.top) / H * 100 : NaN;
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : { x: el._x, y: el._y };
+  }
+  function doAct(k, extra = {}) {
     if (!P) return;
-    const t = now(), cur = el?._x != null ? { x: el._x, y: el._y } : brain(t);
-    const upd = { care: (P.care || 0) + (k === 'sleep' ? 0 : 1) };
+    const t = now(), cur = here() || brain(t);
+    const upd = { care: (P.care || 0) + (k === 'sleep' ? 0 : 1), rm: room(t), rmAt: t };
     const a = { k, by: ctx.me(), ts: t, x: +cur.x.toFixed(1), y: +cur.y.toFixed(1) };
     const mine = ctx.roomOf(ctx.me());
     if (k === 'cuddle' || k === 'call') {
-      if (mine !== P.rm) upd.rm = mine;
+      upd.rm = mine;
       const pos = mine === ctx.view() ? nearAvatar(ctx.me(), -1) : null;
       if (pos) Object.assign(a, pos);
       else if (upd.rm) Object.assign(a, { x: 30, y: 85 });
@@ -341,13 +409,25 @@ export function initPet(ctx) {
       if (back) { a.x = back.x; a.y = back.y; a.z = back.z; }
       Object.assign(upd, { joy: Math.min(100, joy(t) + 25), joyAt: t });
     }
+    if (k === 'trick') {
+      a.t = extra.t;
+      if (extra.t === 'paw') { const pos = nearAvatar(ctx.me(), -1); if (pos) Object.assign(a, pos); }
+      Object.assign(upd, { joy: Math.min(100, joy(t) + 8), joyAt: t });
+    }
+    if (k === 'dish') {
+      Object.assign(a, extra.pos, { v: extra.it.v, bad: extra.it.burnt || null });
+      if (room(t) !== ctx.view()) Object.assign(upd, { rm: ctx.view(), rmAt: t });
+      const bad = extra.it.burnt;
+      Object.assign(upd, { food: Math.min(100, full(t) + (bad ? 20 : 40)), foodAt: t, joy: clamp(joy(t) + (bad ? -5 : 15), 0, 100), joyAt: t });
+    }
     if (a.z == null) delete a.z;
     upd.act = a;
     welcome = null;
     store.update('pet', upd);
     hideBar();
     const n = esc(name());
-    const lines = { cuddle: `cuddled ${n} 🤗`, feed: `fed ${n} 🍖`, treat: `gave ${n} a treat 🦴`, play: `played ball with ${n} 🎾`, call: `called ${n} over 📣`, sleep: `tucked ${n} in for a nap 💤` };
+    const trick = TRICKS.find(x => x[0] === extra.t);
+    const lines = { trick: `taught ${n} to ${trick?.[2].toLowerCase()} ${trick?.[1]}`, dish: `shared ${esc(extra.it?.n || 'some food')} with ${n} 🍽️`, cuddle: `cuddled ${n} 🤗`, feed: `fed ${n} 🍖`, treat: `gave ${n} a treat 🦴`, play: `played ball with ${n} 🎾`, call: `called ${n} over 📣`, sleep: `tucked ${n} in for a nap 💤` };
     ctx.logAct('pet-' + k, lines[k]);
     if (k === 'cuddle') setTimeout(() => ctx.toast(`${PET_TYPES[P.type].e} ${esc(name())} ${PET_TYPES[P.type].love} — ${PET_TYPES[P.type].sound}`, 2600), 900);
     if (k === 'feed' && full(t) > 90) ctx.toast(`${esc(name())} is already full, but ate a little anyway 😋`, 2600);
@@ -360,11 +440,24 @@ export function initPet(ctx) {
     if (!bar) { bar = document.createElement('div'); bar.className = 'popbar pet-popbar'; $('#world').append(bar); }
     const t = now(), asleep = brain(t).mode === 'sleep';
     bar.innerHTML = `<span class="lbl">${esc(name())}${asleep ? ' 💤' : ''}</span>` +
-      [['cuddle', '🤗', 'Cuddle'], ['feed', '🍖', 'Feed'], ['play', '🎾', 'Play'], ['treat', '🦴', 'Treat'], ['sleep', '💤', 'Nap'], ['info', 'ℹ️', 'Info']]
+      [['cuddle', '🤗', 'Cuddle'], ['feed', '🍖', 'Feed'], ['play', '🎾', 'Play'], ['treat', '🦴', 'Treat'], ['tricks', '🎓', 'Tricks'], ['sleep', '💤', 'Nap'], ['info', 'ℹ️', 'Info']]
         .map(([k, e, l]) => `<button data-pet="${k}" aria-label="${l}">${e}</button>`).join('');
     bar.hidden = false;
     placeBar();
     if (asleep) ctx.toast(`${esc(name())} is sleeping… a cuddle will wake them up 🥱`, 2200);
+  }
+  function trickBar() {
+    bar.innerHTML = `<span class="lbl">Tricks</span>` + TRICKS.map(tr => `<button data-pet-trick="${tr[0]}" aria-label="${tr[2]}" class="${knows(tr) ? '' : 'pet-locked'}">${tr[1]}</button>`).join('')
+      + `<button data-pet="back" aria-label="Back">↩️</button>`;
+    placeBar();
+  }
+  function doTrick(id) {
+    const tr = TRICKS.find(x => x[0] === id); if (!tr || !P) return;
+    if (!knows(tr)) return ctx.toast(`🔒 ${esc(name())} learns “${tr[2]}” when ${tr[3] === 'young' ? 'a bit older (young)' : 'grown up'}`, 2600);
+    const b = brain(now());
+    if (b.mode === 'sleep') ctx.toast(`${esc(name())} wakes up for a trick 🥱`, 1800);
+    doAct('trick', { t: id });
+    setTimeout(() => ctx.toast(`${tr[1]} ${esc(name())}: ${tr[2]}! Good ${P.type === 'dog' ? 'boy/girl' : 'pet'} 💕`, 2400), 800);
   }
   function placeBar() {
     if (!bar || !el || el._x == null) return;
@@ -415,7 +508,7 @@ export function initPet(ctx) {
       return showInfo();
     }
     const mine = ctx.roomOf(ctx.me()), pos = nearAvatar(ctx.me(), 1) || { x: 40, y: 86 };
-    store.set('pet', { ...look, born: t, by: ctx.me(), rm: mine, food: 80, foodAt: t, joy: 90, joyAt: t, care: 0, act: { k: 'call', by: ctx.me(), ts: t, x: pos.x, y: pos.y } });
+    store.set('pet', { ...look, born: t, by: ctx.me(), rm: mine, rmAt: t, food: 80, foodAt: t, joy: 90, joyAt: t, care: 0, act: { k: 'call', by: ctx.me(), ts: t, x: pos.x, y: pos.y } });
     ctx.hideOverlay();
     ctx.logAct('pet-adopt', `adopted a ${PET_TYPES[draft.type].n.toLowerCase()} called ${nm}! ${PET_TYPES[draft.type].e}`);
     sfx.yay();
@@ -430,20 +523,22 @@ export function initPet(ctx) {
     if (!P) return ctx.overlayMode() === 'petInfo' && ctx.hideOverlay();
     const t = now(), b = brain(t), st = stage(t), T = PET_TYPES[P.type];
     const doing = { sleep: 'Napping 💤', eat: 'Eating 😋', happy: 'Happy! 💕', run: 'Chasing the ball 🎾', beg: 'Hungry… 🍖', mope: 'A bit lonely 💧', sniff: 'Sniffing around 👃', groom: 'Grooming ✨', stretch: 'Stretching 🙆', wake: 'Waking up 🥱' }[b.mode] || 'Hanging out';
-    const where = ctx.roomName(P.rm);
+    const where = ctx.roomName(room(t));
     const next = st === 'adult' ? '' : ` · grows up in ~${Math.max(1, Math.ceil(((st === 'baby' ? AGE.young : AGE.adult) - ageMs(t)) / DAY))} day(s) — care speeds it up`;
     ctx.showCard(`<div class="pet-prev pet-${st} pet-m-${b.mode === 'sleep' ? 'sleep' : 'idle'} ${full(t) < 25 ? 'pet-hungry' : ''}" style="${petVars(P)}">${petSVG(P)}</div>
       <h2>${esc(P.name)}</h2>
       <p class="muted">${T.e} ${T.n} · ${STAGE_NAME[st]} · ${ageText()}${next}</p>
       <p class="muted">📍 ${esc(where)} · ${doing}</p>
+      <p class="muted pet-tricks">🎓 ${TRICKS.map(tr => `<span class="${knows(tr) ? '' : 'pet-locked'}">${tr[1]} ${tr[2]}</span>`).join(' ')}</p>
       <div class="pet-stats">${barRow('🍖', 'Food', full(t))}${barRow('💕', 'Happy', joy(t))}${barRow('⚡', 'Energy', energy(t))}</div>
       <div class="pet-acts">
         <button class="btn small" data-pet="cuddle">🤗 Cuddle</button><button class="btn small" data-pet="feed">🍖 Feed</button>
         <button class="btn small" data-pet="play">🎾 Play</button><button class="btn small" data-pet="treat">🦴 Treat</button>
       </div>
       <div class="pet-acts">
-        ${P.rm === ctx.view() ? '' : `<button class="btn ghost small" data-pet="find">📍 Go to ${esc(P.name)}</button>`}
+        ${room(t) === ctx.view() ? '' : `<button class="btn ghost small" data-pet="find">📍 Go to ${esc(P.name)}</button>`}
         <button class="btn ghost small" data-pet="call">📣 Call here</button>
+        <button class="btn ghost small" data-pet="tricks">🎓 Tricks</button>
         <button class="btn ghost small" data-pet="sleep">💤 Nap time</button>
       </div>
       ${ctx.isVisitor() ? '' : `<div class="pet-acts"><button class="btn ghost small" data-pet="edit">✏️ Name & look</button><button class="btn ghost small" data-pet="sell">👋 Rehome</button></div>`}
@@ -457,7 +552,7 @@ export function initPet(ctx) {
   }
   function sellNow() {
     if (!P) return;
-    const nm = P.name, t = now(), cur = el?._x != null ? { x: el._x, y: el._y } : { x: 40, y: 86 };
+    const nm = P.name, t = now(), cur = here() || { x: 40, y: 86 };
     store.update('pet', { act: { k: 'bye', by: ctx.me(), ts: t, x: cur.x, y: cur.y } });
     ctx.hideOverlay();
     ctx.logAct('pet-bye', `found ${nm} a loving new home 🏡👋`);
@@ -466,7 +561,7 @@ export function initPet(ctx) {
   function findPet() {
     if (!P) return;
     ctx.hideOverlay();
-    if (P.rm !== ctx.view()) ctx.goRoom(P.rm).then(() => setTimeout(() => el && ctx.centerOn(el._x, el._y), 400));
+    if (room() !== ctx.view()) ctx.goRoom(room()).then(() => setTimeout(() => el && ctx.centerOn(el._x, el._y), 400));
     else if (el) ctx.centerOn(el._x, el._y);
   }
 
@@ -475,12 +570,20 @@ export function initPet(ctx) {
       const k = d.pet;
       if (['cuddle', 'feed', 'play', 'treat', 'call', 'sleep'].includes(k)) { if (ctx.overlayMode()?.startsWith('pet')) ctx.hideOverlay(); doAct(k); return true; }
       if (k === 'info') { hideBar(); showInfo(); return true; }
+      if (k === 'tricks') {
+        if (ctx.overlayMode()?.startsWith('pet')) ctx.hideOverlay();
+        if (room() !== ctx.view() || !el) { ctx.toast(`${esc(name())} is in the ${esc(ctx.roomName(room()).toLowerCase())} — go there to do tricks 🎓`); return true; }
+        if (!bar || bar.hidden) tap();
+        trickBar(); return true;
+      }
+      if (k === 'back') { hideBar(); tap(); return true; }
       if (k === 'edit') { draft = { type: P.type, c1: P.c1, c2: P.c2, pat: P.pat, acc: P.acc, name: P.name }; editing = true; showAdopt(); return true; }
       if (k === 'sell') { showSell(); return true; }
       if (k === 'sellyes') { sellNow(); return true; }
       if (k === 'find') { findPet(); return true; }
       return true;
     }
+    if (d.petTrick) { doTrick(d.petTrick); return true; }
     if (ctx.overlayMode() !== 'petAdopt') return false;
     if (d.petType) { updateDraft({ type: d.petType }); return true; }
     if (d.petC1) { updateDraft({ c1: d.petC1 }); return true; }
@@ -491,17 +594,42 @@ export function initPet(ctx) {
     return false;
   }
 
+  // A shared dish from the kitchen: the pet trots over (even onto the table) and eats it
+  function feedDish(id) {
+    const it = ctx.items()[id]; if (!P || !it) return;
+    ctx.hideOverlay();
+    const pos = { x: +clamp(it.x - 7, 8, ctx.roomW() - 8).toFixed(1), y: +(+it.y).toFixed(2), z: (it.z ?? ctx.itemZ(it)) + 1 };
+    doAct('dish', { it, pos });
+    setTimeout(() => store.remove(`spaces/${ctx.view()}/items/${id}`), 5400);
+  }
+
+  // Gentle reminders: a badge on the 🐾 button and one toast per hungry/lonely spell
+  const reminded = new Set();
+  function remind() {
+    const badge = $('#badge-pet');
+    if (!P || ctx.isVisitor()) { if (badge) badge.hidden = true; return; }
+    const f = full(), j = joy();
+    if (badge) { badge.hidden = !(f < 25 || j < 25); badge.textContent = f < 25 ? '🍖' : '💕'; }
+    const key = f < 25 ? 'food' + P.foodAt : j < 25 ? 'joy' + P.joyAt : null;
+    if (!key || reminded.has(key) || ctx.overlayMode()) return;
+    reminded.add(key);
+    const e = PET_TYPES[P.type].e;
+    ctx.toast(f < 25 ? `${e} <b>${esc(name())}</b> is hungry! Tap 🐾 Pet to feed them 🍖` : `${e} <b>${esc(name())}</b> misses you — how about a cuddle? 🤗`, 6000);
+    sfx.poke();
+  }
+
   function scare() {
-    if (!P || P.rm !== ctx.view()) return;
+    if (!P || room() !== ctx.view()) return;
     scaredUntil = Date.now() + 1600;
     render();
   }
 
   setInterval(() => { if (!document.hidden) render(); }, 500);
   setInterval(() => { if (P && ctx.overlayMode() === 'petInfo') showInfo(); }, 5000);
+  setTimeout(() => { remind(); setInterval(remind, 60000); }, 5000);
 
   return {
-    onPet, render, tap, hideBar, route, openMain, scare,
+    onPet, render, tap, hideBar, route, openMain, scare, feedDish, name: () => P?.name,
     has: () => !!P, CLOSABLE: ['petAdopt', 'petInfo', 'petSell'],
   };
 }

@@ -17,7 +17,7 @@ chat, voice calls, cooking, TV, garden and games. Live at https://uthpalasmw-arc
 | `tv.js` | YouTube together inside the TV (`/tv`), big screen, seek bar, mute everywhere |
 | `games.js` | Chess (perft-verified engine, `/chess`) and Doodle Duel (`/doodle`, `/doodleInk`) |
 | `call.js` | Group voice calls (`/call`, `/callsig`) |
-| `pet.js` | Pet (`/pet`): adopt/rehome, looks, needs, growing up, naps on furniture; behaviour is computed from time + the shared record so phones stay in sync |
+| `pet.js` | Pet (`/pet`): adopt/rehome, looks, needs, growing up, naps on furniture, roams rooms, tricks, eats kitchen dishes; behaviour is computed from time + the shared record so phones stay in sync |
 | `sfx.js` | Synthesized sound effects |
 | `dev-server.js` | `node dev-server.js` → http://localhost:5500 for local testing |
 

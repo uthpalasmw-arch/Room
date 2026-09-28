@@ -499,6 +499,7 @@ export function initKitchen(ctx) {
     ctx.showCard(dishCard(it, `Made by ${madeBy(it)}${forTxt} · ${ctx.ago(it.ts)}${stale ? ' · 🪰 hmm, it’s getting old…' : ''}`,
       `<button class="btn wide" data-food-eat="${id}">😋 ${it.hot && !stale ? 'Eat it while it’s warm!' : 'Eat it'}</button>
        ${it.for !== other() && ctx.joined(other()) ? `<button class="btn ghost wide" data-food-give="${id}">💝 Give it to ${esc(ctx.called(other()))}</button>` : ''}
+       ${ctx.petName?.() ? `<button class="btn ghost wide" data-food-pet="${id}">🐾 Share it with ${esc(ctx.petName())}</button>` : ''}
        <button class="btn ghost wide" data-food-fridge="${id}">🧊 Put it in the fridge</button>
        <button class="btn ghost wide" data-food-bin="${id}">🗑️ Throw it away</button>`), 'food');
   }
@@ -612,6 +613,7 @@ export function initKitchen(ctx) {
     if (d.serve) { serve(d.serve); return true; }
     if (d.foodEat) { eat(d.foodEat); return true; }
     if (d.foodGive) { give(d.foodGive); return true; }
+    if (d.foodPet) { ctx.hideOverlay(); ctx.feedPet(d.foodPet); return true; }
     if (d.foodFridge) { toFridge(d.foodFridge); return true; }
     if (d.foodBin) { bin(d.foodBin); return true; }
     if ('fridgeOpen' in d) { openFridge(); return true; }

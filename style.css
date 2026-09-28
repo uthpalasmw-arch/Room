@@ -1073,3 +1073,23 @@ button.game:active { transform: scale(.98); }
 .pet-meter { height: 10px; border-radius: 99px; background: var(--soft); overflow: hidden; }
 .pet-meter i { display: block; height: 100%; border-radius: 99px; transition: width .4s; }
 .pet-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
+.pet-m-dish .pet-head { animation: pet-nom .5s ease-in-out infinite; }
+.pet-m-trick .pet-svg { transform-origin: 50% 100%; }
+.pet-t-sit .pet-svg { animation: pet-situp 3.4s ease-in-out; }
+.pet-t-spin .pet-svg { animation: pet-spin 1.4s ease-in-out 2; }
+.pet-t-paw .pet-svg { animation: pet-paw 3.4s ease-in-out; }
+.pet-t-roll .pet-svg { animation: pet-roll 1.5s ease-in-out 2; transform-origin: 50% 60%; }
+.pet-t-dead .pet-svg { animation: pet-dead 3.4s ease-in-out; transform-origin: 50% 60%; }
+.pet-t-dance .pet-svg { animation: pet-dance .5s ease-in-out 7; }
+.pet-t-dead .pet-eye { display: none; }
+.pet-t-dead .pet-heye, .pet-t-dance .pet-heye, .pet-t-paw .pet-heye { display: inline; }
+.pet-t-dance .pet-eye, .pet-t-paw .pet-eye { display: none; }
+.pet-m-trick .pet-tail { animation: pet-wagfast .22s ease-in-out infinite; }
+.pet-locked { opacity: .35; filter: grayscale(1); }
+.pet-tricks span { white-space: nowrap; margin: 0 3px; }
+@keyframes pet-situp { 0%, 100% { rotate: 0deg; } 15%, 85% { rotate: -16deg; } }
+@keyframes pet-spin { 0%, 100% { scale: 1 1; } 25% { scale: 0 1; } 50% { scale: -1 1; } 75% { scale: 0 1; } }
+@keyframes pet-paw { 0%, 100% { rotate: 0deg; translate: 0 0; } 20%, 80% { rotate: -30deg; translate: 0 -6%; } 45% { rotate: -34deg; translate: 0 -10%; } }
+@keyframes pet-roll { 0% { rotate: 0deg; translate: 0 0; } 50% { rotate: 180deg; translate: 0 -12%; } 100% { rotate: 360deg; translate: 0 0; } }
+@keyframes pet-dead { 0%, 100% { rotate: 0deg; translate: 0 0; } 15% { rotate: 25deg; translate: 0 -8%; } 30%, 80% { rotate: 180deg; translate: 0 6%; } 88% { rotate: 180deg; translate: 0 -4%; } }
+@keyframes pet-dance { 0%, 100% { rotate: -12deg; translate: 0 0; } 50% { rotate: 12deg; translate: 0 -12%; } }
