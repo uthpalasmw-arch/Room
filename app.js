@@ -1,18 +1,18 @@
-import { createStore } from './store.js?v=24';
-import { createCall } from './call.js?v=24';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=24';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=24';
-import { initTV } from './tv.js?v=24';
-import { initGames } from './games.js?v=24';
-import { initPet } from './pet.js?v=24';
-import { cropPhoto } from './dp.js?v=24';
-import { initVmail } from './vmail.js?v=24';
-import { initOutside, INDOOR, isWet } from './outside.js?v=24';
-import { initFishing } from './fishing.js?v=24';
-import { initBeach } from './beach.js?v=24';
-import { initWoods } from './woods.js?v=24';
-import { initBillboard } from './billboard.js?v=24';
-import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=24';
+import { createStore } from './store.js?v=25';
+import { createCall } from './call.js?v=25';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=25';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=25';
+import { initTV } from './tv.js?v=25';
+import { initGames } from './games.js?v=25';
+import { initPet } from './pet.js?v=25';
+import { cropPhoto } from './dp.js?v=25';
+import { initVmail } from './vmail.js?v=25';
+import { initOutside, INDOOR, isWet } from './outside.js?v=25';
+import { initFishing } from './fishing.js?v=25';
+import { initBeach } from './beach.js?v=25';
+import { initWoods } from './woods.js?v=25';
+import { initBillboard } from './billboard.js?v=25';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=25';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -412,7 +412,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 24;
+const VERSION = 25;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {

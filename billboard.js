@@ -1,7 +1,6 @@
-// 🎬 The beach billboard: real movie posters (TMDB) from both of your countries, famous local food spots,
-// and festival boards. It changes every 30 minutes, the same on both phones.
-import { CONFIG } from './config.js?v=24';
-import { activeEvents, EVENTS } from './seasons.js?v=24';
+// 🎬 The beach billboard: real movie posters (TMDB) from both of your countries.
+// It changes every 30 minutes, the same on both phones.
+import { CONFIG } from './config.js?v=25';
 
 const SLOT_MS = 30 * 60000;
 const CACHE_MS = 6 * 3600000;
@@ -29,30 +28,6 @@ export function countryOf(tz) {
 }
 const COUNTRY_NAME = { LK: 'Sri Lanka', US: 'the USA', IN: 'India', GB: 'the UK', AU: 'Australia', CA: 'Canada', AE: 'the UAE', SG: 'Singapore', NZ: 'New Zealand', JP: 'Japan' };
 const cname = c => COUNTRY_NAME[c] || c;
-
-// Famous, real places & dishes worth recommending (our own boards — not the brands' ads)
-const FOOD = {
-  LK: [
-    ['🦀', 'Ministry of Crab', 'Colombo · legendary chilli & garlic pepper crab', '#e63946'],
-    ['🦐', 'Isso wade at Galle Face', 'Crispy prawn fritters by the sea at sunset', '#ff9f1c'],
-    ['🥘', 'Pilawoos kottu', 'Colombo’s famous late-night cheese kottu', '#8d5a3b'],
-    ['🍛', 'Nuga Gama', 'Village-style Sri Lankan rice & curry, Colombo', '#2a9d8f'],
-    ['🥥', 'Thambili!', 'Cool off with a fresh king coconut', '#f4a261'],
-    ['🍦', 'Elephant House', 'Ice cream & ginger beer — a Sri Lankan classic', '#e76f51'],
-    ['🍳', 'Egg hoppers', 'Crispy-edged appa with lunu miris for breakfast', '#e9c46a'],
-    ['🍮', 'Watalappam', 'Coconut & jaggery pudding — pure comfort', '#6d4c2b'],
-  ],
-  US: [
-    ['🍖', 'Franklin Barbecue', 'Austin, TX · brisket worth the line', '#6d4c2b'],
-    ['🍔', 'Whataburger', 'A Texas late-night tradition', '#ff7a00'],
-    ['🌮', 'Torchy’s Tacos', 'Damn good tacos, straight out of Austin', '#e63946'],
-    ['🥐', 'Kolaches', 'Czech-Texan pastries — try one warm', '#e9c46a'],
-    ['🍨', 'Blue Bell Ice Cream', 'Homemade Vanilla from Brenham, TX', '#4f8cff'],
-    ['🥩', 'The Salt Lick BBQ', 'Driftwood, TX · open-pit barbecue', '#8d5a3b'],
-    ['🌯', 'Fajitas at Ninfa’s', 'Houston’s original Tex-Mex fajitas', '#2a9d8f'],
-    ['🥧', 'Texas pecan pie', 'Sweet, nutty and very Southern', '#b5651d'],
-  ],
-};
 
 export function initBillboard(ctx) {
   const { $, esc } = ctx;
@@ -87,50 +62,32 @@ export function initBillboard(ctx) {
     finally { loading = false; render(); }
   }
 
-  // Everything that could be on the board right now
-  function ads() {
-    const list = [];
-    movies.forEach(m => list.push({ kind: 'movie', ...m }));
-    const cs = countries().length ? countries() : ['US'];
-    cs.forEach(c => (FOOD[c] || []).forEach(([e, name, sub, col]) => list.push({ kind: 'food', e, name, sub, col, country: c })));
-    activeEvents().forEach(id => list.push({ kind: 'fest', e: EVENTS[id].icon, name: `Happy ${EVENTS[id].name}!`, sub: 'From the two of you, to the two of you 💕', col: '#7b5cff' }));
-    return list;
-  }
-  // Stable pick for this half hour (same lists → same ad on both phones); movies 2 out of 3 times
+  // Only movie posters on the board; a stable pick for each half hour (same list → same poster on both phones)
   function current() {
-    const list = ads(); if (!list.length) return null;
+    if (!movies.length) return null;
     const slot = Math.floor(Date.now() / SLOT_MS);
     let h = 7; for (const c of String(slot)) h = (h * 31 + c.charCodeAt(0)) | 0;
-    h = Math.abs(h);
-    const films = list.filter(a => a.kind === 'movie'), fest = list.filter(a => a.kind === 'fest'), rest = list.filter(a => a.kind !== 'movie');
-    if (fest.length && h % 5 === 0) return fest[h % fest.length];
-    if (films.length && h % 3 !== 0) return films[Math.floor(h / 3) % films.length];
-    return rest[h % rest.length] || films[h % films.length];
+    return { kind: 'movie', ...movies[Math.abs(h) % movies.length] };
   }
   function render() {
     const box = document.querySelector('.bb-screen'); if (!box) return;
     if (CONFIG.tmdb && (countries().join(',') !== lastKey || (!movies.length && Date.now() > retryAt))) loadMovies();
-    const ad = current(); if (!ad) { box.innerHTML = ''; return; }
+    const ad = current();
+    if (!ad) { if (box.dataset.k !== 'none') { box.dataset.k = 'none'; box.innerHTML = '<div class="bb-food" style="--bb:#2b2d42"><span>🎬</span><b>Movies</b><small>coming soon…</small></div>'; } return; }
     const key = ad.kind + (ad.id || ad.name);
     if (box.dataset.k === key) return;
     box.dataset.k = key;
-    box.innerHTML = ad.kind === 'movie'
-      ? `<img src="${esc(ad.poster)}" alt="${esc(ad.title)}"><b class="bb-tag">${ad.soon ? 'COMING SOON' : 'NOW SHOWING'}</b>`
-      : `<div class="bb-food" style="--bb:${esc(ad.col)}"><span>${ad.e}</span><b>${esc(ad.name)}</b><small>${esc(ad.sub)}</small></div>`;
+    box.innerHTML = `<img src="${esc(ad.poster)}" alt="${esc(ad.title)}"><b class="bb-tag">${ad.soon ? 'COMING SOON' : 'NOW SHOWING'}</b>`;
   }
   function details() {
-    const ad = current(); if (!ad) return;
-    if (ad.kind === 'movie') {
-      const d = ad.date ? new Date(ad.date).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const ad = current();
+    if (!ad) return ctx.showCard(`<div class="big">🎬</div><h2>Movies coming soon</h2><p class="muted">${esc(status)}</p><button class="btn ghost wide small" data-dismiss>Close</button>`, 'billboard');
+    const d = ad.date ? new Date(ad.date).toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }) : '';
       ctx.showCard(`<img class="bb-poster" src="${esc(ad.poster)}" alt=""><h2>${esc(ad.title)}</h2>
         <p class="muted">${ad.soon ? `🎬 In cinemas ${esc(d)}` : '🍿 Now showing'} in ${esc(cname(ad.country))}</p>
         ${ad.overview ? `<p style="text-align:left;font-size:14px">${esc(ad.overview)}</p>` : ''}
         <p class="muted" style="font-size:11px">${esc(status)} · Movie info from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
         <button class="btn ghost wide small" data-dismiss>Close</button>`, 'billboard');
-    } else {
-      ctx.showCard(`<div class="big">${ad.e}</div><h2>${esc(ad.name)}</h2><p class="muted">${esc(ad.sub)}</p>
-        ${ad.country ? `<p class="muted">📍 A favourite in ${esc(cname(ad.country))}</p>` : ''}<p class="muted" style="font-size:11px">${esc(status)}</p><button class="btn ghost wide small" data-dismiss>Close</button>`, 'billboard');
-    }
   }
   const sceneHTML = () => `<button class="bb-board" data-billboard aria-label="Billboard"><div class="bb-frame"><div class="bb-screen"></div></div><i class="bb-leg l"></i><i class="bb-leg r"></i><i class="bb-lamp l"></i><i class="bb-lamp r"></i></button>`;
 
