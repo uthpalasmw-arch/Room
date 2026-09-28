@@ -22,7 +22,6 @@ export function initWoods(ctx) {
   function sceneHTML() {
     return `<div class="wd-forage"></div>
       <button class="wd-oak" data-carve aria-label="The old oak"><i class="wd-trunk"><span class="wd-carving"></span></i><b>🌳</b></button>
-      <button class="bh-spot" data-fish="start-stream" data-fx="72" style="left:calc(72 * var(--u));top:61%"><b>🎣</b><span>Fish</span></button>
       <button class="bh-spot" data-gift-hide style="left:calc(30 * var(--u));top:70%"><b>🎁</b><span>Hide a gift</span></button>
       <div class="wd-gift"></div><button class="wd-shoot" data-wish hidden>🌠</button>`;
   }

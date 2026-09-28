@@ -1,17 +1,17 @@
-import { createStore } from './store.js?v=20';
-import { createCall } from './call.js?v=20';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=20';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=20';
-import { initTV } from './tv.js?v=20';
-import { initGames } from './games.js?v=20';
-import { initPet } from './pet.js?v=20';
-import { cropPhoto } from './dp.js?v=20';
-import { initVmail } from './vmail.js?v=20';
-import { initOutside, INDOOR } from './outside.js?v=20';
-import { initFishing } from './fishing.js?v=20';
-import { initBeach } from './beach.js?v=20';
-import { initWoods } from './woods.js?v=20';
-import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=20';
+import { createStore } from './store.js?v=21';
+import { createCall } from './call.js?v=21';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=21';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=21';
+import { initTV } from './tv.js?v=21';
+import { initGames } from './games.js?v=21';
+import { initPet } from './pet.js?v=21';
+import { cropPhoto } from './dp.js?v=21';
+import { initVmail } from './vmail.js?v=21';
+import { initOutside, INDOOR } from './outside.js?v=21';
+import { initFishing } from './fishing.js?v=21';
+import { initBeach } from './beach.js?v=21';
+import { initWoods } from './woods.js?v=21';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=21';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -124,6 +124,22 @@ const SEED = {
     'seed-ypot': { t: 'emoji', v: '🪴', x: 88, y: 64, s: .6 },
   },
 };
+// Activity spots became movable things, plus the shell jar at home (v5)
+const SEED5 = {
+  beach: {
+    'seed5-bsurf': { t: 'furn', k: 'surfrack', x: 26, y: 72, c: '#2ec4b6' },
+    'seed5-bkite': { t: 'furn', k: 'kitestand', x: 124, y: 76, c: '#ff5fa2' },
+    'seed5-bbottle': { t: 'furn', k: 'bottlecrate', x: 70, y: 76, c: '#c8875a' },
+    'seed5-bfish': { t: 'furn', k: 'fishspot', x: 150, y: 57, c: '#8d5a3b', z: 600 },
+    'seed5-btiki1': { t: 'furn', k: 'tiki', x: 84, y: 94, c: '#8d5a3b' },
+    'seed5-btiki2': { t: 'furn', k: 'tiki', x: 116, y: 94, c: '#8d5a3b' },
+  },
+  woods: {
+    'seed5-wfish': { t: 'furn', k: 'fishspot', x: 72, y: 62, c: '#8d5a3b' },
+    'seed5-wlantern': { t: 'furn', k: 'lantern', x: 176, y: 82, c: '#ffb703' },
+  },
+  living: { 'seed5-jar': { t: 'furn', k: 'shelljar', x: 14, y: 39.2, c: '#bde0fe', z: 700 } },
+};
 // Added with the woods activities (v4)
 const SEED4 = {
   woods: {
@@ -165,7 +181,8 @@ const HAT_CLASS = { '🕶️': 'h-eyes', '🌸': 'h-side', '🎧': 'h-ears' };
 const WALLPAPERS = [['none', 'Plain'], ['dots', 'Dots'], ['stripes', 'Stripes'], ['hearts', 'Hearts'], ['stars', 'Stars'], ['checks', 'Checks'], ['waves', 'Waves'], ['bricks', 'Bricks']];
 const FLOORS = [['wood', 'Wood'], ['tiles', 'Tiles'], ['carpet', 'Carpet'], ['grass', 'Grass']];
 const FRAMES = ['wood', 'gold', 'pink', 'white', 'polaroid', 'none'];
-const FRAME_NAMES = { wood: 'Wood', gold: 'Gold', pink: 'Pink', white: 'White', polaroid: 'Polaroid', none: 'No frame' };
+const FRAME_NAMES = { wood: 'Wood', gold: 'Gold', pink: 'Pink', white: 'White', polaroid: 'Polaroid', none: 'No frame', shell: 'Seashell 🐚' };
+const frames = () => (S.beach?.frame ? [...FRAMES.slice(0, -1), 'shell', 'none'] : FRAMES);
 const STICKER_SETS = {
   '🌿 Plants': ['🪴', '🌵', '🌻', '💐', '🌷', '🌹', '🌿', '🍄', '🌳', '🌴'],
   '🐾 Pets': ['🐈', '🐕', '🐇', '🐠', '🦜', '🐢', '🦋', '🐹', '🐥', '🦖'],
@@ -222,6 +239,22 @@ const FURN = {
   hammock: { label: 'Hammock', icon: '🪢', c: '#ffb703', html: '<div class="hm-post l"></div><div class="hm-post r"></div><div class="hm-net"></div>' },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
+Object.assign(FURN, {
+  umbrella: { label: 'Beach umbrella', icon: '⛱️', c: '#ff4d6d', html: '<div class="um-top"></div><div class="um-pole"></div>' },
+  lounger: { label: 'Sun lounger', icon: '🛏️', c: '#4f8cff', html: '<div class="ln-back"></div><div class="ln-bed"></div><div class="ln-leg l"></div><div class="ln-leg r"></div>' },
+  tiki: { label: 'Tiki torch', icon: '🔥', c: '#8d5a3b', html: '<div class="tk-flame"></div><div class="tk-cup"></div><div class="tk-pole"></div>' },
+  surfrack: { label: 'Surfboards', icon: '🏄', c: '#2ec4b6', tap: true, html: '<div class="sr-rack"></div><div class="sr-b b1"></div><div class="sr-b b2"></div><div class="sr-b b3"></div>' },
+  kitestand: { label: 'Kite stand', icon: '🪁', c: '#ff5fa2', tap: true, html: '<div class="ks-pole"></div><div class="ks-kite"></div><div class="ks-sign">KITES</div>' },
+  bottlecrate: { label: 'Message bottles', icon: '💌', c: '#c8875a', tap: true, html: '<div class="bc-box"></div><div class="bc-b b1"></div><div class="bc-b b2"></div><div class="bc-b b3"></div>' },
+  fishspot: { label: 'Fishing spot', icon: '🎣', c: '#8d5a3b', tap: true, html: '<div class="fsp-bucket"></div><div class="fsp-rod"></div><div class="fsp-sign">🎣</div>' },
+  lantern: { label: 'Camp lantern', icon: '🏮', c: '#ffb703', html: '<div class="lt-handle"></div><div class="lt-glass"></div><div class="lt-base"></div>' },
+  shelljar: { label: 'Shell jar', icon: '🫙', c: '#bde0fe', tap: true, html: '<div class="sj-lid"></div><div class="sj-glass"><div class="sj-fill"></div></div>' },
+  shellchime: { label: 'Shell wind chime', icon: '🎐', c: '#f4d9a0', tap: true, html: '<div class="sc-bar"></div><div class="sc-str s1"></div><div class="sc-str s2"></div><div class="sc-str s3"></div><div class="sc-str s4"></div>' },
+});
+// Man-made things you can place at the beach / in the woods (nature itself stays put)
+for (const k of ['umbrella', 'lounger', 'towel', 'deckchair', 'icecart', 'lifeguard', 'hammock', 'bucket', 'tiki', 'surfrack', 'kitestand', 'bottlecrate']) FURN[k].out = 'beach';
+for (const k of ['tent', 'log', 'picnic', 'basket', 'lantern']) FURN[k].out = 'woods';
+for (const k of ['campfire', 'fishspot']) FURN[k].out = 'both';
 Object.assign(FURN, SEASON_FURN);   // festival pieces (only offered in their festival's pack)
 // Where characters sit or lie on furniture: [dx, height above the item's bottom, pose] in room units
 const SEATS = {
@@ -236,6 +269,7 @@ const SEATS = {
   log: { front: [[-5, 5.5, 'sit'], [5, 5.5, 'sit']] },
   lifeguard: { front: [[0, 21, 'sit']] },
   hammock: { front: [[-5, 5, 'lie'], [5, 5, 'lie']] },
+  lounger: { front: [[0, 4, 'lie']] },
   tent: { front: [[-5, 3, 'lie'], [5, 3, 'lie']] },
   picnic: { front: [[-7, 1, 'sit'], [7, 1, 'sit']] },
 };
@@ -297,7 +331,7 @@ const ONLINE_WINDOW = 45000;
 const REACH = 26;
 
 // ── State ────────────────────────────────────────────────────
-const S = { catch: {}, pics: {}, garden: {}, look: {}, profiles: {}, nicks: {}, presence: {}, avatars: {}, items: {}, strokes: {}, notes: {}, msgs: [], typing: {}, power: null };
+const S = { beach: {}, catch: {}, pics: {}, garden: {}, look: {}, profiles: {}, nicks: {}, presence: {}, avatars: {}, items: {}, strokes: {}, notes: {}, msgs: [], typing: {}, power: null };
 let store, roomId, me, other, call, view = 'living';
 let panel = null, overlayMode = null, spaceUnsubs = [];
 let drawHintShown = false;
@@ -377,7 +411,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 20;
+const VERSION = 21;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -596,7 +630,7 @@ async function enterRoom() {
       toast('🖼️ It’s hanging in the living room!'); logAct('postcard', 'hung a beach photo in the living room 📸');
     },
   });
-  store.on('beach', v => outside.onBeach(v));
+  store.on('beach', v => { S.beach = v || {}; outside.onBeach(v); $$('.item[data-kind="furn:shelljar"]').forEach(renderJar); });
   fishing = initFishing({
     $, esc, sfx, store, me: () => me, called, toast, showCard, hideOverlay, logAct,
     hasPet: () => !!pet?.has(), petName: () => pet?.name(), giveFishToPet: f => pet?.giveFish(f),
@@ -609,6 +643,9 @@ async function enterRoom() {
     myPos: () => { const a = avatarEl(me); return a ? { x: a._x, y: a._y } : { x: 100, y: 85 }; },
     partnerPos: () => { const a = avatarEl(other); return a && roomOf(other) === view && isOnline(other) ? { x: a._x, y: a._y } : null; },
     myAvatar: () => S.avatars[me], moveMe: upd => store.update(`avatars/${me}`, upd),
+    beachData: () => S.beach || {}, addFurn: k => addFurniture(k), item: id => S.items[id],
+    removeItem: id => store.remove(`${sp()}/items/${id}`), updateItem: (id, u) => store.update(`${sp()}/items/${id}`, u),
+    fxAt: (id, e) => { const el = $(`#items [data-id="${id}"]`); const it = S.items[id]; if (it) spawnFx(e, it.x, it.y, 8); el?.classList.add('shake'); },
     placeFood: data => store.push(`${sp()}/items`, { ...data, ts: store.now() }),
     eat: e => eatFx(e),
   });
@@ -627,7 +664,7 @@ async function enterRoom() {
   store.on('outside', v => outside.onShared(v));
   seasons = initSeasons({
     $, esc, sfx, toast, showCard, hideOverlay, lsGet, lsSet, addItem, centerX: () => viewCenterX(),
-    wild: () => !!ROOMS[view]?.wild, skyHour: () => outside.skyHour(), outside: () => isOutside(view),
+    wild: () => false, skyHour: () => outside.skyHour(), outside: () => isOutside(view),
   });
   store.on('walk', v => outside.onWalk(v));
   setInterval(flyAround, 2600);
@@ -707,6 +744,10 @@ async function openSpace(rid) {
     upd.seedv = 4;
     for (const [k, v] of Object.entries(SEED4[rid] || {})) upd[`items/${k}`] = { s: 1, ...v, ts: 0 };
   }
+  if ((seedv || 0) < 5) {
+    upd.seedv = 5;
+    for (const [k, v] of Object.entries(SEED5[rid] || {})) upd[`items/${k}`] = { s: 1, ...v, ts: 0 };
+  }
   // The house got a garage: nudge the yard's apple tree out of its way (once, only if nobody moved it)
   if (rid === 'yard' && seeded) { const tr = await store.once(`${sp()}/items/seed-ytree`); if (tr && tr.x === 160 && tr.y === 74) upd['items/seed-ytree/x'] = 180; }
   if (Object.keys(upd).length) store.update(sp(), upd);
@@ -748,6 +789,7 @@ async function goThroughDoor(next) {
   $$('.avatar').forEach(a => a.remove());
   await openSpace(next);
   outside?.arrived(from, next);
+  if (from === 'beach' || from === 'woods') store.update(`avatars/${me}`, { surf: null, kite: null, fishing: null, pier: null });
   if (isOutside(from) || isOutside(next)) pet?.follow(from, next);
   door.classList.remove('open');
   setTimeout(() => $('#stage').classList.remove('switching'), 60);
@@ -982,7 +1024,7 @@ function renderAvatars() {
     if (!el) {
       el = document.createElement('div');
       el.className = 'avatar'; el.dataset.id = id;
-      el.innerHTML = '<div class="bubble"></div><div class="body"><span class="face"></span><span class="hat"></span><span class="zzz">💤</span><span class="blanket"></span><span class="mood"></span></div><div class="tag"><b></b><small></small></div><span class="av-kite"><i></i></span>';
+      el.innerHTML = '<div class="bubble"></div><div class="body"><span class="face"></span><span class="hat"></span><span class="zzz">💤</span><span class="blanket"></span><span class="mood"></span><span class="av-neck"></span></div><div class="tag"><b></b><small></small></div><span class="av-kite"><i></i></span>';
       layer.append(el);
     }
     const online = id === me || isOnline(id);
@@ -1004,7 +1046,8 @@ function renderAvatars() {
     ['sit', 'back', 'lie', 'swing'].forEach(c => el.classList.toggle(c, seat?.pose === c));
     el.classList.toggle('swim', view === 'beach' && !seat && pos.y < 64 && !a?.pier);
     el.classList.toggle('fishing', !!a?.fishing && online);
-    el.classList.toggle('surf', view === 'beach' && !!a?.surf && store.now() - a.surf < 7000 && online);
+    el.classList.toggle('surf', view === 'beach' && !!a?.surf && online && !seat);
+    el.classList.toggle('has-neck', !!p.neck);
     el.classList.toggle('has-kite', view === 'beach' && !!a?.kite && online && !seat);
     if (a?.kite) el.style.setProperty('--kite', a.kite);
     const mood = $('.mood', el); mood.textContent = p.mood?.e || ''; mood.hidden = !p.mood?.e;
@@ -1046,6 +1089,29 @@ function renderAvatars() {
     } else if (!kk && lastKick[id] === undefined) lastKick[id] = 0;
   }
   if (!$('#emotebar').hidden && emoteTarget) positionEmotebar();
+  renderActivity();
+}
+// ✅ What you're doing right now, with a Done button (surfing, kite, fishing, swimming, sitting…)
+function renderActivity() {
+  const a = S.avatars[me] || {}, el = avatarEl(me);
+  const swimming = view === 'beach' && el?.classList.contains('swim');
+  const act = view === 'beach' && a.surf ? ['🏄 Surfing', 'surf'] : view === 'beach' && a.kite ? ['🪁 Flying a kite', 'kite']
+    : a.fishing ? ['🎣 Fishing', 'fish'] : swimming ? ['🏊 Swimming', 'swim'] : a.seat ? [el?.classList.contains('lie') ? '😴 Lying down' : '🪑 Sitting', 'seat'] : null;
+  let chip = $('#act-chip');
+  if (!act) { if (chip) chip.hidden = true; return; }
+  if (!chip) { chip = document.createElement('div'); chip.id = 'act-chip'; $('#stage').append(chip); }
+  chip.hidden = false;
+  const html = `<span>${act[0]}…</span><button data-act-done="${act[1]}">${act[1] === 'seat' ? 'Get up' : act[1] === 'swim' ? 'Get out' : 'Done'}</button>`;
+  if (chip._h !== html) { chip.innerHTML = html; chip._h = html; }
+}
+function actDone(k) {
+  const a = S.avatars[me] || {};
+  if (k === 'surf') store.update(`avatars/${me}`, { surf: null, y: 67, seat: null });
+  if (k === 'kite') store.update(`avatars/${me}`, { kite: null });
+  if (k === 'fish') { if (overlayMode === 'fishing') hideOverlay(); fishing?.closed(); store.update(`avatars/${me}`, { fishing: null }); }
+  if (k === 'swim') store.update(`avatars/${me}`, { y: 68, pier: null });
+  if (k === 'seat' && a.seat) { const it = S.items[a.seat.id]; store.update(`avatars/${me}`, { seat: null, x: it?.x ?? a.x, y: clamp((it?.y ?? a.y) + 4, 60, 97) }); }
+  sfx.pop();
 }
 
 function spawnFx(text, x, y, up, cls = 'float', extra = {}) {
@@ -1263,7 +1329,7 @@ function setupStage() {
   const stage = $('#stage');
   stage.addEventListener('click', e => {
     if (stage._panned) { stage._panned = false; return; }
-    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go], [data-fish], #fest-btns, [data-ball], .bh-spot, .bh-bottle, .wd-oak, .wd-found, .wd-shoot, .ws-animal')) return;
+    if (e.target.closest('.popbar, .zoombar, #tvctl, #ytwrap, #vm-float, [data-go], [data-fish], #fest-btns, #act-chip, [data-ball], .bh-spot, .bh-bottle, .wd-oak, .wd-found, .wd-shoot, .ws-animal')) return;
     const hadEmote = !$('#emotebar').hidden;
     const prevTarget = emoteTarget;
     hideEmotebar();
@@ -1332,6 +1398,12 @@ function nearestSeat(id, p) {
   for (let i = 0; i < n; i++) { const d = Math.abs(seatPos(id, i).x - p.x); if (d < bd) { bd = d; best = i; } }
   return best;
 }
+// 🫙 How full the shell jar looks
+function renderJar(el) {
+  const b = S.beach || {}, n = Object.values(b.count || {}).reduce((a, x) => a + x, 0) - (b.spent || 0);
+  const f = $('.sj-fill', el); if (f) f.style.height = Math.min(100, n * 4) + '%';
+  el.dataset.count = n;
+}
 function eatFx(e) {
   const a = avatarEl(me); if (!a) return;
   spawnFx(e, a._x, a._y, 20, 'eat-dish');
@@ -1367,6 +1439,13 @@ function tapItem(id, p) {
   if (it.k === 'vmail') return vmail?.open();
   if (it.k === 'bucket') return outside.buildCastle();
   if (it.k === 'icecart') return beach?.iceMenu();
+  if (it.tide) return beach?.castleCard(id, it);
+  if (it.k === 'surfrack') return beach?.surf();
+  if (it.k === 'kitestand') return beach?.kiteMenu();
+  if (it.k === 'bottlecrate') return beach?.writeBottle();
+  if (it.k === 'fishspot') return fishing?.route({ fish: view === 'woods' ? 'start-stream' : 'start-sea', fx: it.x, fy: it.y });
+  if (it.k === 'shelljar') return beach?.jarCard();
+  if (it.k === 'shellchime') { sfx.tinkle(); const el = $(`#items [data-id="${id}"]`); el?.classList.remove('chiming'); void el?.offsetWidth; el?.classList.add('chiming'); return; }
   if (it.k === 'basket') return woods?.picnic();
   if (it.k === 'campfire') {
     const lit = it.lit && store.now() - it.lit < HOUR;
@@ -1400,7 +1479,7 @@ function renderItems() {
       el._new = true; setTimeout(() => { el._new = false; el.classList.remove('new'); }, 450);
       layer.append(el);
     }
-    const tappable = it.t === 'photo' || it.t === 'food' || (it.t === 'furn' && FURN[it.k]?.tap);
+    const tappable = it.t === 'photo' || it.t === 'food' || it.tide || (it.t === 'furn' && FURN[it.k]?.tap);
     el.className = ['item', it.t, tappable ? 'tap' : '', SEATS[it.k] ? 'sitable' : '', id === selectedItem ? 'sel' : '', el._new ? 'new' : ''].join(' ');
     el.style.setProperty('--s', it.s || 1);
     el.style.setProperty('--fx', it.fl ? -1 : 1);
@@ -1409,6 +1488,8 @@ function renderItems() {
     el.classList.toggle('flyer', flyer);
     if (it.k === 'flowerbed') renderBed(el);
     if (it.k === 'vmail') vmail?.decorate(el);
+    if (it.k === 'shelljar') renderJar(el);
+    if (it.tide) { if (it.deco) el.dataset.deco = it.deco; else delete el.dataset.deco; }
     if (it.k === 'campfire') el.classList.toggle('cf-lit', !!it.lit && store.now() - it.lit < HOUR);
     if (it.t === 'food') kitchen?.renderFood(el, it);
     if (it.t === 'text') el.style.color = it.c || '#fff';
@@ -1843,7 +1924,6 @@ const head = (title, sub = '') => `<div class="panel-head"><div><b>${title}</b>$
 function openPanel(name) {
   if (panel === name) return closePanel();
   if (name === 'draw' && isOutside(view)) return toast('✏️ Drawing is for the walls inside the house 🏠');
-  if (name === 'decorate' && ROOMS[view]?.wild) return toast('🌿 Nature stays natural — decorate at home or in the front yard');
   closePanel();
   panel = name;
   const dock = $('#dock');
@@ -1902,7 +1982,8 @@ function pinNote() {
 }
 
 function renderDecoratePanel() {
-  const tabs = view === 'yard' ? [['house', '🏠 House'], ['furniture', '🪑 Furniture'], ['stickers', '🧸 Stuff'], ['text', '🔤 Words']]
+  const tabs = ROOMS[view]?.wild ? [['outdoor', view === 'beach' ? '🏖️ Beach things' : '🏕️ Camping things'], ['stickers', '🧸 Stuff']]
+    : view === 'yard' ? [['house', '🏠 House'], ['furniture', '🪑 Furniture'], ['stickers', '🧸 Stuff'], ['text', '🔤 Words']]
     : [['furniture', '🛋️ Furniture'], ['photos', '🖼️ Photos'], ['stickers', '🧸 Stuff'], ['themes', '✨ Themes'], ['wall', '🧱 Wall'], ['floor', '🪵 Floor'], ['text', '🔤 Words']];
   if (!tabs.some(([k]) => k === decoTab)) decoTab = tabs[0][0];
   $('#dock').innerHTML = `<div class="slim-top"><div class="tabs">${tabs.map(([k, l]) => `<button class="chip ${k === decoTab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
@@ -1920,7 +2001,7 @@ function renderSelStrip() {
   if (!it || it.t === 'emoji' || it.t === 'food') { box.hidden = true; return; }
   box.hidden = false;
   if (it.t === 'photo') {
-    box.innerHTML = `<div class="chips">${FRAMES.map(f => `<button class="chip ${f === (it.f || 'wood') ? 'on' : ''}" data-item-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div>`;
+    box.innerHTML = `<div class="chips">${frames().map(f => `<button class="chip ${f === (it.f || 'wood') ? 'on' : ''}" data-item-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div>`;
   } else {
     const label = it.t === 'text' ? 'Text color' : `${FURN[it.k]?.label || 'Item'} color`;
     box.innerHTML = `<small>${label}</small>${swatches(PALETTE, it.c || FURN[it.k]?.c, 'data-item-color')}`;
@@ -1932,10 +2013,12 @@ function renderDecoBody() {
   const r = look();
   const nPhotos = Object.values(S.items).filter(i => i.t === 'photo').length;
   const html = {
+    outdoor: `<div class="furn-grid">${Object.entries(FURN).filter(([, f]) => f.out === view || f.out === 'both').map(([k, f]) => `<button data-furn="${k}"><span>${f.icon}</span>${f.label}</button>`).join('')}</div>
+      <p class="hint">🌿 Only man-made things — the sea, trees and animals stay as nature made them.</p>`,
     furniture: `<div class="furn-grid">${Object.entries(FURN).filter(([, f]) => !f.season).map(([k, f]) => `<button data-furn="${k}"><span>${f.icon}</span>${f.label}</button>`).join('')}</div>
       <p class="hint">Tip: tap a piece in the room to change its color, turn it 🔄, resize or remove it.</p>`,
     photos: `<div class="row"><input class="field" id="photo-cap" maxlength="40" placeholder="Caption (optional)"><button class="btn small" data-add-photo>📷 Gallery</button></div>
-        <div class="slim-line"><small>Frame</small><div class="chips">${FRAMES.map(f => `<button class="chip ${f === photoFrame ? 'on' : ''}" data-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div></div>
+        <div class="slim-line"><small>Frame</small><div class="chips">${frames().map(f => `<button class="chip ${f === photoFrame ? 'on' : ''}" data-frame="${f}">${FRAME_NAMES[f]}</button>`).join('')}</div></div>
         <p class="slim-note">${nPhotos}/${MAX_PHOTOS} photos in this room</p>`,
     stickers: `<div class="chips">${Object.keys(STICKER_SETS).map(k => `<button class="chip ${k === stickerSet ? 'on' : ''}" data-set-stickers="${esc(k)}">${k}</button>`).join('')}</div>
       <div class="stickers">${STICKER_SETS[stickerSet].map(s => `<button data-sticker="${s}">${s}</button>`).join('')}</div>`,
@@ -2447,6 +2530,7 @@ function route(d, t) {
   if ('close' in d) return closePanel();
   if ('dpPick' in d) return pickDP();
   if ('dpRemove' in d) { store.remove(`pics/${me}`); return toast('Back to your emoji face 🙂'); }
+  if (d.actDone) return actDone(d.actDone);
   if ('decoUndo' in d) return undoDeco();
   if ('decoAll' in d) { const dk = $('#dock'); dk.classList.remove('folded'); dk.classList.toggle('expanded'); return; }
   if ('fold' in d) { const dk = $('#dock'); dk.classList.toggle('folded'); t.textContent = dk.classList.contains('folded') ? '▴' : '▾'; return; }

@@ -43,6 +43,7 @@ export const sfx = {
   yay() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.16, 'triangle', 0.12, i * 0.09)); },
   boom() { tone(90, 0.35, 'triangle', 0.12); for (let i = 0; i < 6; i++) tone(1800 + Math.random() * 1400, 0.05, 'square', 0.015, 0.12 + i * 0.05); },
   koel() { [0, 0.55, 1.1].forEach((w, i) => { tone(620 + i * 90, 0.12, 'sine', 0.09, w); tone(880 + i * 120, 0.28, 'sine', 0.1, w + 0.12); }); },
+  tinkle() { [1760, 2093, 2637, 2349, 1976].forEach((f, i) => tone(f, 0.5, 'sine', 0.05, i * 0.09)); },
   swish() { tone(1200, 0.12, 'triangle', 0.06); tone(900, 0.12, 'triangle', 0.06, 0.06); },
   ring() { [0, 0.18, 0.5, 0.68].forEach((w, i) => tone(i % 2 ? 988 : 784, 0.16, 'sine', 0.22, w)); },
   ringback() { tone(440, 0.8, 'sine', 0.06); tone(480, 0.8, 'sine', 0.06); },

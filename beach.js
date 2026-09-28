@@ -69,16 +69,16 @@ export function initBeach(ctx) {
   // ── 🏄 Surfing & 🪁 kites (shown on your character for both of you) ──
   function surf() {
     if (ctx.me() === 'v') return;
-    ctx.moveMe({ x: 50 + Math.random() * 60, y: 58, seat: null, surf: now(), pier: null });
+    ctx.moveMe({ x: 40 + Math.random() * 60, y: 58, seat: null, surf: now(), pier: null, kite: null });
     sfx.swish();
-    ctx.toast('🏄 Cowabunga!', 1500);
+    ctx.toast('🏄 Cowabunga! Tap “Done” at the top when you’re finished', 2500);
     ctx.logAct('surf', 'went surfing 🏄🌊');
   }
   function kiteMenu() {
     const cur = ctx.myAvatar()?.kite;
     ctx.showCard(`<div class="big">🪁</div><h2>Fly a kite</h2><p class="muted">Pick a colour — it flies above you while you’re on the beach</p>
       <div class="swatches" style="justify-content:center">${KITES.map(c => `<button class="sw" style="background:${c}" data-kite="${c}" aria-label="${c}"></button>`).join('')}</div>
-      ${cur ? '<button class="btn ghost wide small" style="margin-top:12px" data-kite="off">🪢 Reel it in</button>' : ''}
+      ${cur ? '<button class="btn ghost wide small" style="margin-top:12px" data-kite="off">🪢 Done — reel it in</button>' : ''}
       <button class="btn ghost wide small" style="margin-top:8px" data-dismiss>Close</button>`, 'kite');
   }
   // ── 🍦 Ice-cream cart ──
@@ -100,10 +100,7 @@ export function initBeach(ctx) {
   }
 
   function sceneHTML() {
-    return `<div class="bh-bottles"></div><button class="bh-ball" data-ball aria-label="Volleyball">🏐</button>
-      <button class="bh-spot bh-throw" data-bottle-write style="left:calc(64 * var(--u));top:66%"><b>💌</b><span>Bottle</span></button>
-      <button class="bh-spot" data-surf style="left:calc(22 * var(--u));top:64%"><b>🏄</b><span>Surf</span></button>
-      <button class="bh-spot" data-kite-menu style="left:calc(108 * var(--u));top:66%"><b>🪁</b><span>Kite</span></button>`;
+    return `<div class="bh-bottles"></div><button class="bh-ball" data-ball aria-label="Volleyball">🏐</button>`;
   }
   function entered() { render(); onBall(ball); }
 
@@ -114,11 +111,55 @@ export function initBeach(ctx) {
     if ('ball' in d) { hitBall(); return true; }
     if ('surf' in d) { surf(); return true; }
     if ('kiteMenu' in d) { kiteMenu(); return true; }
-    if (d.kite) { ctx.hideOverlay(); ctx.moveMe({ kite: d.kite === 'off' ? null : d.kite }); if (d.kite !== 'off') { sfx.swish(); ctx.logAct('kite', 'is flying a kite at the beach 🪁'); } return true; }
+    if (d.kite) { ctx.hideOverlay(); ctx.moveMe({ kite: d.kite === 'off' ? null : d.kite, seat: null, surf: null }); if (d.kite !== 'off') { sfx.swish(); ctx.logAct('kite', 'is flying a kite at the beach 🪁'); ctx.toast('🪁 Up it goes! Tap “Done” at the top to reel it in', 2500); } return true; }
     if ('iceMenu' in d) { iceMenu(); return true; }
     if (d.ice) { ice(+d.ice); return true; }
     return false;
   }
   setInterval(() => { if (here()) render(); }, 60000);
-  return { onBottles, onBall, sceneHTML, entered, route, iceMenu, CLOSABLE: ['bottle', 'kite', 'ice'] };
+  // ── 🏰 Sandcastles: knock them down or decorate them with a shell ──
+  function castleCard(id, it) {
+    ctx.showCard(`<div class="big">🏰${esc(it.deco || '')}</div><h2>A sandcastle</h2><p class="muted">Built by ${esc(ctx.called(it.by))} · the tide takes it after a day</p>
+      <div class="stack"><button class="btn wide" data-castle-shell="${id}">🐚 Decorate it with a shell</button>
+      <button class="btn ghost wide" data-castle-kick="${id}">👣 Knock it down</button><button class="btn ghost wide small" data-dismiss>Leave it</button></div>`, 'castle');
+  }
+  // ── 🫙 Shell jar & crafts ──
+  const shellsLeft = () => { const b = ctx.beachData(); return Object.values(b.count || {}).reduce((a, n) => a + n, 0) - (b.spent || 0); };
+  async function spend(n) {
+    const total = Object.values(ctx.beachData().count || {}).reduce((a, x) => a + x, 0);
+    return store.transact('beach/spent', cur => ((cur || 0) + n <= total ? (cur || 0) + n : undefined));
+  }
+  const CRAFTS = [['chime', '🎐', 'Shell wind chime', 5, 'Tinkles when you tap it'], ['frame', '🖼️', 'Shell photo frame', 10, 'A new frame for your photos'], ['necklace', '📿', `Shell necklace for your partner`, 20, 'They’ll wear it 💕']];
+  function jarCard() {
+    const n = shellsLeft();
+    ctx.showCard(`<div class="big">🫙</div><h2>Our shell jar</h2><p class="muted"><b>${n}</b> ${n === 1 ? 'shell' : 'shells'} from the beach (new ones wash up every 4 hours 🌊)</p>
+      <div class="stack">${CRAFTS.map(([k, e, name, cost, sub]) => `<button class="btn ${n >= cost ? '' : 'ghost'} wide" style="flex-direction:column;gap:0" data-craft="${k}" ${n >= cost ? '' : 'disabled'}><span>${e} ${name} · ${cost} 🐚</span><small style="font-weight:400">${sub}</small></button>`).join('')}
+      <button class="btn ghost wide small" data-dismiss>Close</button></div>`, 'jar');
+  }
+  async function craft(k) {
+    const c = CRAFTS.find(x => x[0] === k); if (!c) return;
+    if (!(await spend(c[3]))) return ctx.toast('Not enough shells yet 🐚');
+    ctx.hideOverlay(); sfx.yay();
+    if (k === 'chime') { ctx.addFurn('shellchime'); ctx.logAct('craft', 'made a seashell wind chime 🎐'); }
+    if (k === 'frame') { store.set('beach/frame', true); ctx.toast('🖼️ New “Seashell” frame unlocked — pick it when you hang a photo!', 4000); ctx.logAct('craft', 'made a seashell photo frame 🐚🖼️'); }
+    if (k === 'necklace') { store.update(`profiles/${ctx.other()}`, { neck: { by: ctx.me(), ts: now() } }); ctx.logAct('craft', 'made you a seashell necklace 📿💕'); ctx.toast(`📿 ${esc(ctx.called(ctx.other()))} is wearing your necklace!`, 3500); }
+  }
+
+  function route2(d) {
+    if (d.castleKick) { ctx.hideOverlay(); ctx.removeItem(d.castleKick); sfx.bonk(); ctx.fxAt(d.castleKick, '💥'); return true; }
+    if (d.castleShell) {
+      ctx.hideOverlay();
+      spend(1).then(ok => {
+        if (!ok) return ctx.toast('🐚 No shells in the jar — pick some up on the beach first!');
+        const it = ctx.item(d.castleShell); if (it) ctx.updateItem(d.castleShell, { deco: ((it.deco || '') + '🐚').slice(-6) });
+        sfx.pop();
+      });
+      return true;
+    }
+    if ('jar' in d) { jarCard(); return true; }
+    if (d.craft) { craft(d.craft); return true; }
+    return false;
+  }
+
+  return { onBottles, onBall, sceneHTML, entered, route: d => route(d) || route2(d), iceMenu, kiteMenu, surf, writeBottle, castleCard, jarCard, CLOSABLE: ['bottle', 'kite', 'ice', 'castle', 'jar'] };
 }

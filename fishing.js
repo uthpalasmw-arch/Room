@@ -97,8 +97,8 @@ export function initFishing(ctx) {
   function route(d) {
     if (!d.fish) return false;
     const k = d.fish;
-    if (k === 'start-sea') ctx.walkTo(154, 57, true).then(() => start('sea'));
-    else if (k === 'start-stream') ctx.walkTo(d.fx ? +d.fx : 100, 63, false).then(() => start('stream'));
+    if (k === 'start-sea') { const x = d.fx ? +d.fx : 154, y = d.fy ? +d.fy + 1 : 57; ctx.walkTo(x, y, y < 64).then(() => start('sea')); }
+    else if (k === 'start-stream') ctx.walkTo(d.fx ? +d.fx : 100, d.fy ? Math.max(62, +d.fy + 1) : 63, false).then(() => start('stream'));
     else if (k === 'reel') reel();
     else if (k === 'cast') start(st?.where || 'sea');
     else if (k === 'home' || k === 'free' || k === 'pet') after(k);

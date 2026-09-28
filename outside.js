@@ -1,6 +1,6 @@
 // 🏡 Outside: the front yard (and later the beach and woods), travel rules, one shared sky, walking together.
 
-import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=20';
+import { today, isActive, isChristmasDay, skyExtras } from './seasons.js?v=21';
 
 export const INDOOR = ['living', 'bedroom', 'kitchen', 'garden'];
 export const OUTDOOR = ['yard', 'beach', 'woods'];
@@ -64,7 +64,6 @@ const BEACH = `
   <button class="bs-crab c1" data-crab="1">🦀</button><button class="bs-crab c2" data-crab="2">🦀</button>
   <div class="bs-shells"></div>
   <div class="bs-pier"><i class="post p1"></i><i class="post p2"></i><i class="post p3"></i></div>
-  <button class="bs-fishspot" data-fish="start-sea"><b>🎣</b><span>Fish</span></button>
   <button class="os-sign l" data-go="yard"><b>← 🏡 Home</b><i></i></button>
   <button class="bs-photo" data-photo-spot aria-label="Photo spot"><b>📸</b><span>Photo spot</span></button>`;
 
@@ -111,6 +110,8 @@ function weatherAt(t = Date.now()) {
 
 const SHELLS = ['🐚', '🐚', '🦪', '🐚', '🪸', '🐚'];
 const dayKey = () => new Date().toISOString().slice(0, 10);
+// A new batch of shells washes up with every tide (every 4 hours, same for both phones)
+const tideKey = () => { const d = new Date(); return d.toISOString().slice(0, 10) + 't' + Math.floor(d.getUTCHours() / 4); };
 function rnd(seed) { let h = 2166136261; for (const c of seed) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10000) / 10000; }
 
 export function initOutside(ctx) {
@@ -189,17 +190,17 @@ export function initOutside(ctx) {
   function onBeach(v) { beachData = v || {}; renderShells(); }
   function renderShells() {
     const box = document.querySelector('.bs-shells'); if (!box) return;
-    const day = dayKey(), taken = beachData.shells?.[day] || {};
+    const day = tideKey(), taken = beachData.shells?.[day] || {};
     box.innerHTML = SHELLS.map((e, i) => taken[i] ? '' : `<button class="bs-shell" data-shell="${i}" style="left:calc(${(12 + rnd(day + 'x' + i) * 176).toFixed(1)} * var(--u));top:${(70 + rnd(day + 'y' + i) * 25).toFixed(1)}%">${e}</button>`).join('');
   }
   async function pickShell(i) {
-    const day = dayKey();
+    const day = tideKey();
     const ok = await store.transact(`beach/shells/${day}/${i}`, cur => cur ? undefined : ctx.me());
     if (!ok) return;
     let n = 0;
     await store.transact(`beach/count/${ctx.me()}`, c => (n = (c || 0) + 1));
     ctx.sfx.pop();
-    ctx.toast(`${SHELLS[i]} Found a shell! You have <b>${n}</b> ${n === 1 ? 'shell' : 'shells'} 🌊`, 2500);
+    ctx.toast(`${SHELLS[i]} Found a shell! It’s in your shell jar at home 🫙 (you’ve found ${n})`, 2500);
     if (n % 10 === 0) ctx.logAct('shells', `has collected ${n} seashells at the beach 🐚`);
   }
   function crab(el) {
@@ -361,6 +362,7 @@ export function initOutside(ctx) {
   }
 
   setInterval(() => { if (isOut(here())) applySky(); }, 60000);
+  setInterval(() => { if (here() === 'beach') renderShells(); }, 5 * 60000);
   setInterval(() => { if (here() === 'woods' && !document.hidden) animalsTick(); }, 3500);
   setInterval(() => { if (here() === 'beach' && !document.hidden) seaTick(); }, 1000);
 
