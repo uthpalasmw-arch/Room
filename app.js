@@ -1,13 +1,13 @@
-import { createStore } from './store.js?v=14';
-import { createCall } from './call.js?v=14';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=14';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=14';
-import { initTV } from './tv.js?v=14';
-import { initGames } from './games.js?v=14';
-import { initPet } from './pet.js?v=14';
-import { cropPhoto } from './dp.js?v=14';
-import { initVmail } from './vmail.js?v=14';
-import { initOutside, INDOOR } from './outside.js?v=14';
+import { createStore } from './store.js?v=15';
+import { createCall } from './call.js?v=15';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=15';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=15';
+import { initTV } from './tv.js?v=15';
+import { initGames } from './games.js?v=15';
+import { initPet } from './pet.js?v=15';
+import { cropPhoto } from './dp.js?v=15';
+import { initVmail } from './vmail.js?v=15';
+import { initOutside, INDOOR } from './outside.js?v=15';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -31,15 +31,17 @@ const ROOMS = {
   kitchen: { name: 'Kitchen', icon: '🍳', rest: 'chair', w: 1.6 },
   garden: { name: 'Garden', icon: '🌷', rest: 'gbench', w: 1.6 },
   yard: { name: 'Front yard', icon: '🏡', rest: 'gbench', w: 2, out: true },
+  beach: { name: 'Beach', icon: '🏖️', rest: 'towel', w: 2, out: true, wild: true },
 };
 const isOutside = rm => !!ROOMS[rm]?.out;
-const ROOM_BLURB = { living: 'TV, sofa, arcade & notes board', bedroom: 'Cozy bed & fairy lights', kitchen: 'Cook, bake & make tea together', garden: 'Flowers, swing, pond & butterflies', yard: 'Outside your house · paths to the woods & beach' };
-const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 }, kitchen: { x: 14, y: 64 }, garden: { x: 14, y: 64 }, yard: { x: 100, y: 67 } };
+const ROOM_BLURB = { living: 'TV, sofa, arcade & notes board', bedroom: 'Cozy bed & fairy lights', kitchen: 'Cook, bake & make tea together', garden: 'Flowers, swing, pond & butterflies', yard: 'Outside your house · paths to the woods & beach', beach: 'Waves, sandcastles, shells & sunsets' };
+const DOOR_SPOT = { living: { x: 184, y: 62 }, bedroom: { x: 16, y: 62 }, kitchen: { x: 14, y: 64 }, garden: { x: 14, y: 64 }, yard: { x: 100, y: 67 }, beach: { x: 14, y: 72 } };
 const DEFAULT_LOOK = {
   living: { wall: '#ffd6e0', wp: 'dots', floor: '#e9b872', fl: 'wood', rug: '#ff8fab', cur: '#ff5fa2' },
   bedroom: { wall: '#e4c1f9', wp: 'stars', floor: '#bdb2ff', fl: 'carpet', rug: '#ffffff', cur: '#7b5cff' },
   kitchen: { wall: '#b8f2e6', wp: 'checks', floor: '#f4f1fb', fl: 'tiles', rug: 'none', cur: '#ffb703' },
   garden: { wall: '#8fd3ff', wp: 'none', floor: '#8ac926', fl: 'grass', rug: 'none', cur: 'none' },
+  beach: { wall: '#8fd3ff', wp: 'none', floor: '#f4d9a0', fl: 'sand', rug: 'none', cur: 'none' },
   yard: { wall: '#8fd3ff', wp: 'none', floor: '#7cc444', fl: 'grass', rug: 'none', cur: 'none', house: '#ffe8d6', roof: '#e63946', hdoor: '#7b5cff', trim: '#ffffff' },
 };
 const SEED = {
@@ -90,6 +92,14 @@ const SEED = {
     'seed-bfly2': { t: 'emoji', v: '🦋', x: 116, y: 55 },
     'seed-bee': { t: 'emoji', v: '🐝', x: 30, y: 80 },
     'seed-mush': { t: 'emoji', v: '🍄', x: 154, y: 82 },
+  },
+  beach: {
+    'seed-btowel': { t: 'furn', k: 'towel', x: 62, y: 86, c: '#ff5fa2' },
+    'seed-bumbrella': { t: 'emoji', v: '⛱️', x: 90, y: 82, s: 1.6 },
+    'seed-bchair1': { t: 'furn', k: 'deckchair', x: 118, y: 88, c: '#4f8cff' },
+    'seed-bchair2': { t: 'furn', k: 'deckchair', x: 136, y: 88, c: '#ffb703' },
+    'seed-bbucket': { t: 'furn', k: 'bucket', x: 160, y: 92, c: '#ff4d6d' },
+    'seed-bball': { t: 'emoji', v: '🏐', x: 34, y: 92, s: .6 },
   },
   yard: {
     'seed-ybench': { t: 'furn', k: 'gbench', x: 40, y: 84, c: '#c8875a' },
@@ -168,6 +178,9 @@ const FURN = {
   pond: { label: 'Pond', icon: '🦆', c: '#4fc3f7', html: '<div class="water"><span class="duck">🦆</span><span class="fish">🐟</span><i class="pad a"></i><i class="pad b"></i></div>' },
   flowerbed: { label: 'Flower bed', icon: '🌷', c: '#8d5a3b', tap: true, html: '<div class="soil"></div>' + [0, 1, 2, 3].map(i => `<span class="plot" data-plot="${i}"></span>`).join('') },
   vmail: { label: 'Answering machine', icon: '📼', c: '#6d6875', tap: true, html: '<div class="vm-base"></div><div class="vm-tape"><i></i><i></i></div><div class="vm-screen"><span class="vm-count">0</span></div><div class="vm-light"></div><div class="vm-keys"><i></i><i></i><i></i></div>' },
+  towel: { label: 'Beach towel', icon: '🏖️', c: '#ff5fa2', html: '<div class="tw"></div>' },
+  deckchair: { label: 'Deck chair', icon: '🪑', c: '#4f8cff', html: '<div class="dc-leg l"></div><div class="dc-leg r"></div><div class="dc-back"></div><div class="dc-seat"></div>' },
+  bucket: { label: 'Sand bucket', icon: '🪣', c: '#ff4d6d', tap: true, html: '<div class="bk-handle"></div><div class="bk-pail"></div><div class="bk-spade"></div>' },
   arcade: { label: 'Arcade', icon: '🕹️', c: '#5a3fd6', tap: true, html: '<div class="cab"></div><div class="screen">👾</div><div class="label">GAMES</div><div class="btns"></div>' },
 };
 // Where characters sit or lie on furniture: [dx, height above the item's bottom, pose] in room units
@@ -178,6 +191,8 @@ const SEATS = {
   beanbag: { front: [[0, 5, 'sit']] },
   swing: { front: [[-6, 10, 'swing'], [6, 10, 'swing']] },
   gbench: { front: [[-7, 6.5, 'sit'], [7, 6.5, 'sit']] },
+  towel: { front: [[-8, 1, 'lie'], [8, 1, 'lie']] },
+  deckchair: { front: [[0, 5, 'sit']] },
 };
 const TURNABLE = { sofa: ['front', 'back', 'left', 'right'], chair: ['front', 'back', 'left', 'right'] };
 const TV_CHANNELS = ['', '🐠', '💕', '⚽', ''];
@@ -317,7 +332,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 14;
+const VERSION = 15;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -522,7 +537,18 @@ async function enterRoom() {
     $, esc, store, toast, showCard, hideOverlay, me: () => me, other: () => other, view: () => view, roomOf, isOnline, joined, called, faceHTML,
     isVisitor: () => isVisitor, roomName: rm => ROOMS[rm]?.name || rm, exists: rm => !!ROOMS[rm], goRoom: rm => goThroughDoor(rm),
     myTz: () => Intl.DateTimeFormat().resolvedOptions().timeZone, clock: tz => localTime(tz),
+    sfx, logAct, color: id => prof(id).color,
+    pickSpot: () => { const a = S.avatars[me] || { x: 100, y: 85 }; return { x: +clamp(a.x + rand(-14, 14), 10, roomW() - 10).toFixed(1), y: +clamp(Math.max(a.y, 70) + rand(0, 8), 70, 96).toFixed(1) }; },
+    addScenery: data => store.push(`${sp()}/items`, { s: 1, ...data, by: me, ts: store.now() }),
+    faceImage: id => new Promise(res => { const src = pic(id); if (!src) return res(prof(id).face); const im = new Image(); im.onload = () => res(im); im.onerror = () => res(prof(id).face); im.src = src; }),
+    hangPhoto: async d => {
+      const pid = store.newKey('photos');
+      await store.set(`photos/${pid}`, { d, by: me, ts: store.now() });
+      store.push('spaces/living/items', { t: 'photo', pid, f: 'polaroid', cap: 'Beach day 🏖️', x: 60 + rand(-20, 60), y: rand(24, 34), s: 1, by: me, ts: store.now() });
+      toast('🖼️ It’s hanging in the living room!'); logAct('postcard', 'hung a beach photo in the living room 📸');
+    },
   });
+  store.on('beach', v => outside.onBeach(v));
   store.on('outside', v => outside.onShared(v));
   store.on('walk', v => outside.onWalk(v));
   setInterval(flyAround, 2600);
@@ -624,6 +650,7 @@ async function goThroughDoor(next) {
   $$('.avatar').forEach(a => a.remove());
   await openSpace(next);
   outside?.arrived(from, next);
+  if (isOutside(from) || isOutside(next)) pet?.follow(from, next);
   door.classList.remove('open');
   setTimeout(() => $('#stage').classList.remove('switching'), 60);
 }
@@ -827,7 +854,7 @@ function seatPos(itemId, idx) {
     x: it.x + dx * sc * flip, y: it.y - up * sc * UPCT, pose,
     z: pose === 'back' ? itemZ(it) - 1 : itemZ(it) + (pose === 'lie' ? 60 : 1),
     left: it.face === 'left' ? true : it.face === 'right' ? false : null,
-    blanket: it.k === 'bed' ? (it.c || FURN.bed.c) : null,
+    blanket: it.k === 'bed' || it.k === 'towel' ? (it.c || FURN[it.k].c) : null,
   };
 }
 function freeSeat(itemId, preferred = 0) {
@@ -877,6 +904,7 @@ function renderAvatars() {
       el.style.zIndex = seat ? seat.z : Math.round(pos.y * 10) + 1;
     }
     ['sit', 'back', 'lie', 'swing'].forEach(c => el.classList.toggle(c, seat?.pose === c));
+    el.classList.toggle('swim', view === 'beach' && !seat && pos.y < 64);
     const mood = $('.mood', el); mood.textContent = p.mood?.e || ''; mood.hidden = !p.mood?.e;
     if (seat?.blanket) el.style.setProperty('--blanket', seat.blanket);
     el.style.setProperty('--c', p.color);
@@ -1159,7 +1187,7 @@ function setupStage() {
     const p = worldPt(e);
     if (p.y < 50) return;
     sfx.swish();
-    store.update(`avatars/${me}`, { x: +clamp(p.x, 6, roomW() - 6).toFixed(1), y: +clamp(p.y + 4, 60, 97).toFixed(1), seat: null });
+    store.update(`avatars/${me}`, { x: +clamp(p.x, 6, roomW() - 6).toFixed(1), y: +clamp(p.y + 4, view === 'beach' ? 56 : 60, 97).toFixed(1), seat: null });
   });
 
   // Drag items while decorating (stops the camera from panning)
@@ -1229,6 +1257,7 @@ function tapItem(id, p) {
   }
   if (it.k === 'tv') return tv.tapTV();
   if (it.k === 'vmail') return vmail?.open();
+  if (it.k === 'bucket') return outside.buildCastle();
   if (it.k === 'arcade') return openPanel('games');
   if (it.k === 'flowerbed') return showBed(id);
   if (it.k === 'floorlamp') return toggleLights();
@@ -1239,6 +1268,7 @@ function renderItems() {
   const layer = $('#items');
   const seen = new Set();
   for (const [id, it] of Object.entries(S.items)) {
+    if (it.tide && store.now() - (it.ts || 0) > 24 * HOUR) { store.remove(`${sp()}/items/${id}`); continue; }
     seen.add(id);
     const kind = it.t === 'furn' ? 'furn:' + it.k : it.t;
     let el = layer.querySelector(`[data-id="${id}"]`);
@@ -1693,6 +1723,7 @@ const head = (title, sub = '') => `<div class="panel-head"><div><b>${title}</b>$
 function openPanel(name) {
   if (panel === name) return closePanel();
   if (name === 'draw' && isOutside(view)) return toast('✏️ Drawing is for the walls inside the house 🏠');
+  if (name === 'decorate' && ROOMS[view]?.wild) return toast('🌿 Nature stays natural — decorate at home or in the front yard');
   closePanel();
   panel = name;
   const dock = $('#dock');
@@ -2255,7 +2286,7 @@ function route(d, t) {
   if (kitchen?.route(d)) return;
   if (pet?.route(d)) return;
   if (vmail?.route(d)) return;
-  if (outside?.route(d)) return;
+  if (outside?.route(d, t)) return;
   if (d.action === 'pet') { closePanel(); return pet?.openMain(); }
   if (d.tv) return tv?.act(d.tv);
   if (d.mini === 'close') return toggleMini(false);
@@ -2417,7 +2448,7 @@ document.addEventListener('change', e => {
 });
 
 const CLOSABLE = ['tips', 'summary', 'photo', 'rooms', 'nick', 'tv', 'mood', 'bed', 'bouquet', 'chess', 'doodle'];
-const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask');
+const canClose = () => overlayMode && (CLOSABLE.includes(overlayMode) || kitchen?.CLOSABLE.includes(overlayMode) || pet?.CLOSABLE.includes(overlayMode) || overlayMode === 'vmail' || overlayMode === 'walkask' || overlayMode === 'postcard');
 $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay' && canClose()) hideOverlay(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && canClose()) hideOverlay(); });
 

@@ -618,6 +618,16 @@ export function initPet(ctx) {
     sfx.poke();
   }
 
+  // Out on a walk: if the pet is with you outside, it comes along to the next place
+  function follow(from, to) {
+    if (!P || room() !== from) return;
+    const outdoor = ['yard', 'beach', 'woods'];
+    if (!outdoor.includes(from) && !outdoor.includes(to)) return;
+    if (!outdoor.includes(from) && !(P.act?.by === ctx.me() && now() - P.act.ts < STAY)) return;   // only takes it out if you called/played with it
+    store.update('pet', { rm: to, rmAt: now(), act: null });
+    ctx.toast(`${PET_TYPES[P.type].e} ${esc(name())} comes along! 🐾`, 2000);
+  }
+
   function scare() {
     if (!P || room() !== ctx.view()) return;
     scaredUntil = Date.now() + 1600;
@@ -629,7 +639,7 @@ export function initPet(ctx) {
   setTimeout(() => { remind(); setInterval(remind, 60000); }, 5000);
 
   return {
-    onPet, render, tap, hideBar, route, openMain, scare, feedDish, name: () => P?.name,
+    onPet, render, tap, hideBar, route, openMain, scare, feedDish, follow, name: () => P?.name,
     has: () => !!P, CLOSABLE: ['petAdopt', 'petInfo', 'petSell'],
   };
 }
