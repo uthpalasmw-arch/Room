@@ -25,7 +25,7 @@ chat, voice calls, cooking, TV, garden and games. Live at https://uthpalasmw-arc
 | `fishing.js` | Fishing mini-game (pier at the beach, stream in the woods): catches go to `/catch` (fridge "Your catch" shelf → seafood recipes use them up), `/fishing/best` record |
 | `beach.js` | Beach fun: message in a bottle (`/bottles`, washes up after 12 h), volleyball (`/beachball`), surfing, kites, ice-cream cart |
 | `woods.js` | Woods activities (`/woods`): daily foraging (goes to `/catch`), marshmallows at the campfire, feeding animals (they follow you), carving initials in the oak, hide-a-gift with warmer/colder hints, shooting stars, picnic basket |
-| `billboard.js` | Beach billboard: TMDB movie posters (key `CONFIG.tmdb`) for both users' countries (from their time zones); movies only, rotates every 30 min |
+| `billboard.js` | Beach billboard: TMDB movie posters (key `CONFIG.tmdb`) for both users' countries (from their time zones); movies only, rotates every 30 min; per-country release dates + a chosen cinema per city (`/billboard/cinemas`, Colombo & Houston lists) with Map/Showtimes links |
 | `sfx.js` | Synthesized sound effects |
 | `dev-server.js` | `node dev-server.js` → http://localhost:5500 for local testing |
 

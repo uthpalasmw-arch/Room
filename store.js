@@ -2,7 +2,7 @@
 //  • Firebase Realtime Database (real, online, both phones)
 //  • Local demo (localStorage + BroadcastChannel, same device only)
 // Both expose the same API: on / once / set / update / push / remove / now / presence
-import { CONFIG } from './config.js?v=25';
+import { CONFIG } from './config.js?v=26';
 
 const FB = '10.12.2';
 const split = p => String(p || '').split('/').filter(Boolean);

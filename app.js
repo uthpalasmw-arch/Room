@@ -1,18 +1,18 @@
-import { createStore } from './store.js?v=25';
-import { createCall } from './call.js?v=25';
-import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=25';
-import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=25';
-import { initTV } from './tv.js?v=25';
-import { initGames } from './games.js?v=25';
-import { initPet } from './pet.js?v=25';
-import { cropPhoto } from './dp.js?v=25';
-import { initVmail } from './vmail.js?v=25';
-import { initOutside, INDOOR, isWet } from './outside.js?v=25';
-import { initFishing } from './fishing.js?v=25';
-import { initBeach } from './beach.js?v=25';
-import { initWoods } from './woods.js?v=25';
-import { initBillboard } from './billboard.js?v=25';
-import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=25';
+import { createStore } from './store.js?v=26';
+import { createCall } from './call.js?v=26';
+import { sfx, unlockAudio, startRing, stopRing } from './sfx.js?v=26';
+import { initKitchen, APPLIANCE_CAT } from './kitchen.js?v=26';
+import { initTV } from './tv.js?v=26';
+import { initGames } from './games.js?v=26';
+import { initPet } from './pet.js?v=26';
+import { cropPhoto } from './dp.js?v=26';
+import { initVmail } from './vmail.js?v=26';
+import { initOutside, INDOOR, isWet } from './outside.js?v=26';
+import { initFishing } from './fishing.js?v=26';
+import { initBeach } from './beach.js?v=26';
+import { initWoods } from './woods.js?v=26';
+import { initBillboard } from './billboard.js?v=26';
+import { initSeasons, SEASON_FURN, isActive as festActive } from './seasons.js?v=26';
 
 // ── Helpers ──────────────────────────────────────────────────
 const $ = (s, r = document) => r.querySelector(s);
@@ -412,7 +412,7 @@ function swatches(list, cur, attr, { none = false, any = true, small = false } =
 
 // ── Boot ─────────────────────────────────────────────────────
 // Phones cache the page; ask the server for the newest one and reload once if we're behind.
-const VERSION = 25;
+const VERSION = 26;
 fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).then(t => {
   const live = +(t.match(/app\.js\?v=(\d+)/)?.[1] || 0);
   if (live > VERSION && !sessionStorage.getItem('ourroom:updated:' + live)) {
@@ -658,7 +658,8 @@ async function enterRoom() {
     eat: e => eatFx(e),
   });
   store.on('bottles', v => beach.onBottles(v));
-  billboard = initBillboard({ $, esc, showCard, lsGet, lsSet, tzOf: id => S.profiles?.[id]?.tz });
+  billboard = initBillboard({ $, esc, showCard, store, lsGet, lsSet, tzOf: id => S.profiles?.[id]?.tz });
+  store.on('billboard', v => billboard.onData(v));
   woods = initWoods({
     $, esc, sfx, store, me: () => me, other: () => other, view: () => view, called, ago, toast, showCard, hideOverlay, spawnFx, logAct,
     myPos: () => { const a = avatarEl(me); return a ? { x: a._x, y: a._y } : { x: 100, y: 85 }; },
